@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<!-- This file was automatically generated. DO NOT EDIT! -->
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+  <head>
+    <meta http-equiv="Content-Type" content="text/xhtml; charset=ISO-8859-1"/>
+    <meta http-equiv="Content-Style-Type" content="text/css"/>
+    <meta http-equiv="Content-Language" content="en"/>
+    <link rel="stylesheet" href="style.css" type="text/css"/>
+    <title>Mibble TODO-List</title>
+  </head>
+
+  <body>
+
+    <h1>Mibble TODO-List</h1>
+
+
+    <h2>Known Issues</h2>
+
+    <p>This is a list of the known issues as of the release of version
+    2.9.3 (2011-12-08). The most
+    up-to-date version of this list is available from the
+    <a href="http://github.com/cederberg/mibble/issues">project
+    issue tracker</a>.</p>
+
+    <ul>
+      <li>
+        There are currently no known issues.
+      </li>
+    </ul>
+
+
+    <h2>Suggested Improvements</h2>
+
+    <p>This is a list of the suggested improvements as of the release
+    of version 2.9.3 (2011-12-08). The
+    most up-to-date version of this list is available from the
+    <a href="http://github.com/cederberg/mibble/issues">project
+    issue tracker</a>.</p>
+
+    <ul>
+      <li>
+        <strong>Error recovery for missing imports</strong><br/>
+        Mibble fails to load MIB files referencing symbols from
+        other MIBs not imported. Mibble should provide a fallback for
+        this, reporting a warning and loading the proper symbol.
+        <a href="http://github.com/cederberg/mibble/issues/2">Issue #2</a>
+      </li>
+
+      <li>
+        <strong>SNMP client capabilities</strong><br/>
+        The library currently does not provide any API for
+        building an SNMP agent or client. With an API for using
+        WestHawk SNMP and/or SNMP4J, a more integrated and easier
+        solution could be provided. <a href="http://github.com/cederberg/mibble/issues/3">Issue #3</a>
+      </li>
+
+      <li>
+        <strong>Strict SMIv1 and SMIv2 parsing</strong><br/>
+        When parsing SMIv1 files, any usage of symbols or constructs
+        from SMIv2 should trigger a warning. The opposite goes for SMIv2 files.
+        <a href="http://github.com/cederberg/mibble/issues/4">Issue #4</a>
+      </li>
+
+      <li>
+        <strong>Object serialization</strong><br/>
+        There is currently no easy way to store the state of a
+        loaded Mib, so the same files have to be parsed every time
+        which may be time consuming. By adding object serialization or
+        similar this might be faster. <a href="http://github.com/cederberg/mibble/issues/5">Issue #5</a>
+      </li>
+    </ul>
+
+  
+    <hr/>
+
+    <p class="footer">Mibble 2.9.3 (2011-12-08). See the
+    <a href="http://www.mibble.org/">Mibble web site</a>
+    for more information.</p>
+
+    <p class="footer">Copyright &copy; 2002-2011 Per Cederberg. Permission
+    is granted to copy this document verbatim in any medium, provided
+    that this copyright notice is left intact.</p>
+
+  </body>
+</html>

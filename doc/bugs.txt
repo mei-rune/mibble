@@ -1,0 +1,53 @@
+MIBBLE TODO-LIST
+================
+
+Known Issues
+------------
+
+  This is a list of the known issues as of the release of version 
+  2.9.3 (2011-12-08). The most up-to-date version of this list is 
+  available from the project issue tracker 
+  (http://github.com/cederberg/mibble/issues).
+
+    o There are currently no known issues.
+
+
+Suggested Improvements
+----------------------
+
+  This is a list of the suggested improvements as of the release of 
+  version 2.9.3 (2011-12-08). The most up-to-date version of this 
+  list is available from the project issue tracker 
+  (http://github.com/cederberg/mibble/issues).
+
+    o Error recovery for missing imports
+      Mibble fails to load MIB files referencing symbols from other 
+      MIBs not imported. Mibble should provide a fallback for this, 
+      reporting a warning and loading the proper symbol. [Issue #2]
+
+    o SNMP client capabilities
+      The library currently does not provide any API for building an 
+      SNMP agent or client. With an API for using WestHawk SNMP 
+      and/or SNMP4J, a more integrated and easier solution could be 
+      provided. [Issue #3]
+
+    o Strict SMIv1 and SMIv2 parsing
+      When parsing SMIv1 files, any usage of symbols or constructs 
+      from SMIv2 should trigger a warning. The opposite goes for 
+      SMIv2 files. [Issue #4]
+
+    o Object serialization
+      There is currently no easy way to store the state of a loaded 
+      Mib, so the same files have to be parsed every time which may 
+      be time consuming. By adding object serialization or similar 
+      this might be faster. [Issue #5]
+
+
+_____________________________________________________________________
+
+Mibble 2.9.3 (2011-12-08). See http://www.mibble.org/ for more
+information.
+
+Copyright (c) 2002-2011 Per Cederberg. Permission is granted to copy
+this document verbatim in any medium, provided that this copyright
+notice is left intact.
