@@ -145,8 +145,8 @@ build.date = ${build.printdate}
     <javac srcdir="src/java"
            destdir="classes"
            classpathref="project.class.path"
-           source="1.4"
-           target="1.4"
+           source="1.5"
+           target="1.5"
            debug="off"
            optimize="on"
            deprecation="on" />
@@ -156,8 +156,8 @@ build.date = ${build.printdate}
     <javac srcdir="src/java"
            destdir="classes"
            classpathref="project.class.path"
-           source="1.4"
-           target="1.4"
+           source="1.5"
+           target="1.5"
            debug="on"
            deprecation="on" />
   </target>
@@ -186,9 +186,9 @@ build.date = ${build.printdate}
 
 <!-- DOCUMENTATION TARGETS -->
   <target name="doc-clean">
-    <delete dir="doc" quiet="true" />
+<!--     <delete dir="doc" quiet="true" />
     <mkdir dir="doc" />
-    <mkdir dir="doc/api" />
+    <mkdir dir="doc/api" /> -->
   </target>
 
   <target name="doc-text">
