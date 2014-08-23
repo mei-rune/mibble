@@ -33,8 +33,6 @@ import java.util.ArrayList;
 import net.percederberg.grammatica.parser.ParserCreationException;
 import net.percederberg.grammatica.parser.ParserLogException;
 
-import net.percederberg.mibble.Mib;
-import net.percederberg.mibble.MibLoaderLog;
 import net.percederberg.mibble.asn1.Asn1Parser;
 import net.percederberg.mibble.value.ObjectIdentifierValue;
 

@@ -99,7 +99,7 @@
   <target name="compile-codegen">
     <taskdef resource="ant-grammatica.properties" classpathref="project.class.path" />
     <grammatica grammar="src/grammar/asn1.grammar">
-      <java dir="src/java"
+      <java dir="src/main/java"
             package="${build.java.package}.asn1"
             public="true" />
     </grammatica>
@@ -142,7 +142,7 @@ build.date = ${build.printdate}
   </target>
 
   <target name="compile-java-optimized" if="build.optimized">
-    <javac srcdir="src/java"
+    <javac srcdir="src/main/java"
            destdir="classes"
            classpathref="project.class.path"
            source="1.5"
@@ -153,7 +153,7 @@ build.date = ${build.printdate}
   </target>
 
   <target name="compile-java-debug" unless="build.optimized">
-    <javac srcdir="src/java"
+    <javac srcdir="src/main/java"
            destdir="classes"
            classpathref="project.class.path"
            source="1.5"
@@ -223,7 +223,7 @@ build.date = ${build.printdate}
   <target name="doc-java">
     <javadoc packagenames="${build.java.package}.*"
              excludepackagenames="${build.java.package}.asn1.*,${build.java.package}.browser.*"
-             sourcepath="src/java"
+             sourcepath="src/main/java"
              destdir="doc/api"
              classpath="classes"
              classpathref="project.class.path"

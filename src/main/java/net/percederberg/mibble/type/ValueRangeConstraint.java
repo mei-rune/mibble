@@ -306,7 +306,7 @@ public class ValueRangeConstraint implements Constraint {
         if (strictLower) {
             buffer.append("<");
         }
-        buffer.append("..");
+        buffer.append("src/main");
         if (strictUpper) {
             buffer.append("<");
         }
