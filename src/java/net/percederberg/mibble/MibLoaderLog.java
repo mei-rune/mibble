@@ -204,6 +204,11 @@ public class MibLoaderLog {
         return entries.iterator();
     }
 
+
+    public void clear() {
+        entries.clear();
+    }
+
     /**
      * Prints all log entries to the specified output stream.
      *

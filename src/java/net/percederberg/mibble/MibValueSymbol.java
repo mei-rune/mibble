@@ -26,6 +26,8 @@ import net.percederberg.mibble.type.SequenceOfType;
 import net.percederberg.mibble.type.SequenceType;
 import net.percederberg.mibble.value.ObjectIdentifierValue;
 
+import java.lang.IllegalArgumentException;
+
 /**
  * A MIB value symbol. This class holds information relevant to a MIB
  * value assignment, i.e. a type and a value. Normally the value is
@@ -70,6 +72,9 @@ public class MibValueSymbol extends MibSymbol {
         super(location, mib, name);
         this.type = type;
         this.value = value;
+        if(null == this.value) {
+          throw new IllegalArgumentException("'value' of "+name+" is null");
+        }
     }
 
     /**

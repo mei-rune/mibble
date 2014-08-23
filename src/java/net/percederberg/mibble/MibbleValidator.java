@@ -68,7 +68,7 @@ public class MibbleValidator {
      */
     public static void main(String[] args) {
         MibLoader  loader = new MibLoader();
-        Mib        mib;
+        Mib[]      mibs;
         ArrayList  queue = new ArrayList();
         File       file;
         Object     src;
@@ -113,19 +113,21 @@ public class MibbleValidator {
                 loader.unloadAll();
                 if (src instanceof URL) {
                     loader.removeAllDirs();
-                    mib = loader.load((URL) src);
+                    mibs = loader.load((URL) src);
                 } else {
                     file = (File) src;
                     if (!loader.hasDir(file.getParentFile())) {
                         loader.removeAllDirs();
                         loader.addDir(file.getParentFile());
                     }
-                    mib = loader.load(file);
+                    mibs = loader.load(file);
                 }
                 System.out.println("[OK]");
-                if (mib.getLog().warningCount() > 0) {
+                for(Mib mib : mibs) {
+                  if (mib.getLog().warningCount() > 0) {
                     mib.getLog().printTo(System.out);
                     warnings++;
+                  }
                 }
             } catch (FileNotFoundException e) {
                 System.out.println("[FAILED]");

@@ -41,6 +41,8 @@ import net.percederberg.mibble.MibValueSymbol;
  */
 public class ObjectIdentifierValue extends MibValue {
 
+    private boolean initialized = false;
+
     /**
      * The declaration file location. This variable is only used when
      * resolving value references in order to present correct error
@@ -59,7 +61,7 @@ public class ObjectIdentifierValue extends MibValue {
     /**
      * The component children.
      */
-    private ArrayList children = new ArrayList();
+    private final ArrayList children = new ArrayList();
 
     /**
      * The object identifier component name.
@@ -169,8 +171,14 @@ public class ObjectIdentifierValue extends MibValue {
     public MibValue initialize(MibLoaderLog log, MibType type)
         throws MibException {
 
+        if(initialized) {
+          return this;
+        }
+        initialized = true;
+
         ValueReference         ref = null;
-        ObjectIdentifierValue  oid;
+        ObjectIdentifierValue  oid = null;
+        MibValue               old_parent = parent;
 
         if (parent == null) {
             return this;
@@ -178,6 +186,10 @@ public class ObjectIdentifierValue extends MibValue {
             ref = (ValueReference) parent;
         }
         parent = parent.initialize(log, type);
+        if(null == parent) {
+          throw new MibException(ref.getLocation(),
+              "referenced value is null.");
+        }
         if(this == parent) {
           throw new MibException(ref.getLocation(),
               "referenced value is own.");
@@ -194,7 +206,11 @@ public class ObjectIdentifierValue extends MibValue {
         }
         location = null;
         if (parent instanceof ObjectIdentifierValue) {
-            return ((ObjectIdentifierValue) parent).getChildByValue(value);
+            MibValue res = ((ObjectIdentifierValue) parent).getChildByValue(value);
+            if(null == res) {
+                return this;
+            }
+            return res;
         } else {
             return this;
         }
@@ -231,14 +247,12 @@ public class ObjectIdentifierValue extends MibValue {
         ObjectIdentifierValue  child;
 
         // Recursively clear all children in same MIB
-        if (children != null) {
-            mib = getMib();
-            copy = (ArrayList) children.clone();
-            for (int i = 0; i < copy.size(); i++) {
-                child = (ObjectIdentifierValue) copy.get(i);
-                if (mib == null || mib == child.getMib()) {
-                    child.clear();
-                }
+        mib = getMib();
+        copy = (ArrayList) children.clone();
+        for (int i = 0; i < copy.size(); i++) {
+            child = (ObjectIdentifierValue) copy.get(i);
+            if (mib == null || mib == child.getMib()) {
+                child.clear();
             }
         }
 
@@ -248,7 +262,7 @@ public class ObjectIdentifierValue extends MibValue {
                 getParent().children.remove(this);
                 parent = null;
             }
-            children = null;
+            children.clear();
         }
 
         // Clear other value data
@@ -428,9 +442,14 @@ public class ObjectIdentifierValue extends MibValue {
     public ObjectIdentifierValue getChildByValue(int value) {
         ObjectIdentifierValue  child;
         int                    low = 0;
-        int                    high = children.size();
+        int                    high = 0;
         int                    pos;
 
+        if(null == children) {
+          return null;
+        }
+
+        high = children.size();
         if (low < value && value <= high) {
             // Default to that the value is really the index - 1 
             pos = value - 1;
@@ -551,10 +570,12 @@ public class ObjectIdentifierValue extends MibValue {
         }
         for (int i = 0; i < parent.children.size(); i++) {
             child = (ObjectIdentifierValue) parent.children.get(i);
-            child.parent = this;
-            addChild(log, location, child);
+            if(this == child.parent) {
+              child.parent = this;
+              addChild(log, location, child);
+            }
         }
-        parent.children = null;
+        parent.children.clear();
     }
 
     /**

@@ -33,6 +33,8 @@ import java.util.ArrayList;
 import net.percederberg.grammatica.parser.ParserCreationException;
 import net.percederberg.grammatica.parser.ParserLogException;
 
+import net.percederberg.mibble.Mib;
+import net.percederberg.mibble.MibLoaderLog;
 import net.percederberg.mibble.asn1.Asn1Parser;
 import net.percederberg.mibble.value.ObjectIdentifierValue;
 
@@ -74,7 +76,7 @@ public class MibLoader {
      * cache. If a MIB isn't found among these directories, the
      * resource directories will be attempted.
      */
-    private ArrayList dirCaches = new ArrayList();
+    private ArrayList<MibDirectoryCache> dirCaches = new ArrayList<MibDirectoryCache>();
 
     /**
      * The MIB file resource directories. This is a list of Java class
@@ -82,14 +84,14 @@ public class MibLoader {
      * directories can be used to store MIB files as resources inside
      * a JAR file.
      */
-    private ArrayList resources = new ArrayList();
+    private ArrayList<String> resources = new ArrayList<String>();
 
     /**
      * The MIB files loaded. This list contains all MIB file loaded
      * with this loader, in order to avoid loading some MIB files
      * multiple times (and thus duplicating import symbols).
      */
-    private ArrayList mibs = new ArrayList();
+    private ArrayList<Mib> mibs = new ArrayList<Mib>();
 
     /**
      * The queue of MIB files to load. This queue contains either
@@ -368,15 +370,15 @@ public class MibLoader {
      *         null otherwise
      */
     public Mib getMib(String name) {
-        Mib  mib;
+      Mib  mib;
 
-        for (int i = 0; i < mibs.size(); i++) {
-            mib = (Mib) mibs.get(i);
-            if (mib.equals(name)) {
-                return mib;
-            }
+      for (int i = 0; i < mibs.size(); i++) {
+        mib = (Mib) mibs.get(i);
+        if (mib.equals(name)) {
+          return mib;
         }
-        return null;
+      }
+      return null;
     }
 
     /**
@@ -392,17 +394,20 @@ public class MibLoader {
      *
      * @since 2.3
      */
-    public Mib getMib(File file) {
-        Mib  mib;
-
-        for (int i = 0; i < mibs.size(); i++) {
-            mib = (Mib) mibs.get(i);
-            if (mib.equals(file)) {
-                return mib;
-            }
+    public Mib[] getMib(File name) {
+      ArrayList<Mib>  mibs = new ArrayList<Mib>();
+      for (int i = 0; i < mibs.size(); i++) {
+        Mib mib = (Mib) mibs.get(i);
+        if (mib.equals(name)) {
+          mibs.add(mib);
         }
+      }
+      if(mibs.isEmpty()) {
         return null;
+      }
+      return mibs.toArray(new Mib[mibs.size()]);
     }
+
 
     /**
      * Returns all previously loaded MIB files. If no MIB files have
@@ -448,11 +453,47 @@ public class MibLoader {
                 throw new FileNotFoundException("couldn't locate MIB: '" +
                                                 name + "'");
             }
-            mib = load(src);
+            Mib[] mibs = load(src);
+            if(null != mibs) {
+              for(Mib mib2 : mibs) {
+                if(mib2.equals(name)) {
+                  return mib2;
+                }
+              }
+            }
+            throw new FileNotFoundException("couldn't locate MIB: '" +
+              name + "'");
         } else {
-            mib.setLoaded(true);
+              mib.setLoaded(true);
         }
         return mib;
+    }
+
+    public Mib load(String name, MibLoaderLog  log) throws IOException {
+      MibSource  src;
+      Mib        mib;
+
+      mib = getMib(name);
+      if (mib == null) {
+        src = locate(name);
+        if (src == null) {
+          throw new FileNotFoundException("couldn't locate MIB: '" +
+              name + "'");
+        }
+        Mib[] mibs = load(src, log);
+        if(null != mibs) {
+          for(Mib mib2 : mibs) {
+            if(mib2.equals(name)) {
+              return mib2;
+            }
+          }
+        }
+        throw new FileNotFoundException("couldn't locate MIB: '" +
+            name + "'");
+      } else {
+        mib.setLoaded(true);
+      }
+      return mib;
     }
 
     /**
@@ -471,16 +512,32 @@ public class MibLoader {
      * @throws MibLoaderException if the MIB file couldn't be loaded
      *             correctly
      */
-    public Mib load(File file) throws IOException, MibLoaderException {
-        Mib  mib;
+    public Mib[] load(File file) throws IOException, MibLoaderException {
+        Mib[]  mibs;
 
-        mib = getMib(file);
-        if (mib == null) {
-            mib = load(new MibSource(file));
+        mibs = getMib(file);
+        if (mibs == null) {
+            mibs = load(new MibSource(file));
         } else {
+          for(Mib mib : mibs) {
             mib.setLoaded(true);
+          }
         }
-        return mib;
+        return mibs;
+    }
+
+    public Mib[] load(File file, MibLoaderLog  log) throws IOException {
+      Mib[]  mibs;
+
+      mibs = getMib(file);
+      if (mibs == null) {
+        mibs = load(new MibSource(file), log);
+      } else {
+        for(Mib mib : mibs) {
+          mib.setLoaded(true);
+        }
+      }
+      return mibs;
     }
 
     /**
@@ -500,8 +557,12 @@ public class MibLoader {
      *
      * @since 2.3
      */
-    public Mib load(URL url) throws IOException, MibLoaderException {
+    public Mib[] load(URL url) throws IOException, MibLoaderException {
         return load(new MibSource(url));
+    }
+
+    public Mib[] load(URL url, MibLoaderLog  log) throws IOException {
+      return load(new MibSource(url), log);
     }
 
     /**
@@ -521,8 +582,12 @@ public class MibLoader {
      *
      * @since 2.3
      */
-    public Mib load(Reader input) throws IOException, MibLoaderException {
+    public Mib[] load(Reader input) throws IOException, MibLoaderException {
         return load(new MibSource(input));
+    }
+
+    public Mib[] load(Reader input, MibLoaderLog  log) throws IOException {
+      return load(new MibSource(input), log);
     }
 
     /**
@@ -539,19 +604,50 @@ public class MibLoader {
      * @throws MibLoaderException if the MIB couldn't be loaded
      *             correctly
      */
-    private Mib load(MibSource src) throws IOException, MibLoaderException {
+    private Mib[] load(MibSource src) throws IOException, MibLoaderException {
 
         int           position;
-        MibLoaderLog  log;
+        MibLoaderLog  log = new MibLoaderLog();
 
         position = mibs.size();
         queue.clear();
         queue.add(src);
-        log = loadQueue();
+
+
+        ArrayList<Mib>     processed = new ArrayList<Mib>();
+        int count = loadQueue(log, processed);
+        // Handle errors
         if (log.errorCount() > 0) {
+          mibs.removeAll(processed);
             throw new MibLoaderException(log);
         }
-        return (Mib) mibs.get(position);
+
+        Mib[] mibs = new Mib[count];
+        for(int i =0; i < count; i ++) {
+          mibs[i] = processed.get(i);
+        }
+        return mibs;
+    }
+
+
+    private Mib[] load(MibSource src, MibLoaderLog  log) throws IOException {
+      if(!queue.isEmpty()) {
+        throw new RuntimeException("load queue isn't empty.");
+      }
+      queue.add(src);
+
+      ArrayList<Mib>     processed = new ArrayList<Mib>();
+      int count = loadQueue(log, processed);
+      // Handle errors
+      if (log.errorCount() > 0) {
+        mibs.removeAll(processed);
+      }
+
+      Mib[] mibs = new Mib[count];
+      for(int i =0; i < count; i ++) {
+        mibs[i] = processed.get(i);
+      }
+      return mibs;
     }
 
     /**
@@ -603,13 +699,10 @@ public class MibLoader {
      * @since 2.3
      */
     public void unload(File file) throws MibLoaderException {
-        Mib  mib;
-
         for (int i = 0; i < mibs.size(); i++) {
-            mib = (Mib) mibs.get(i);
+          Mib mib = (Mib) mibs.get(i);
             if (mib.equals(file)) {
                 unload(mib);
-                return;
             }
         }
     }
@@ -699,14 +792,14 @@ public class MibLoader {
      * @throws IOException if the MIB file in the queue couldn't be
      *             found
      */
-    private MibLoaderLog loadQueue() throws IOException {
-        MibLoaderLog  log = new MibLoaderLog();
-        ArrayList     processed = new ArrayList();
+    private  int  loadQueue(MibLoaderLog  log, ArrayList<Mib> processed) throws IOException {
         boolean       loaded;
         MibSource     src;
         ArrayList     list;
         Object        obj;
 
+        boolean is_first = true;
+        int     count = 0;
         // Parse MIB files in queue
         while (queue.size() > 0) {
             try {
@@ -725,6 +818,12 @@ public class MibLoader {
                     for (int i = 0; i < list.size(); i++) {
                         ((Mib) list.get(i)).setLoaded(loaded);
                     }
+
+                    if(is_first) {
+                      is_first = false;
+                      count = list.size();
+                    }
+
                     mibs.addAll(list);
                     processed.addAll(list);
                 }
@@ -751,13 +850,7 @@ public class MibLoader {
                 // Do nothing, errors are already in the log
             }
         }
-
-        // Handle errors
-        if (log.errorCount() > 0) {
-            mibs.removeAll(processed);
-        }
-
-        return log;
+        return count;
     }
 
     /**

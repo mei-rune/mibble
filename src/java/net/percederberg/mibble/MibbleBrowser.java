@@ -203,7 +203,6 @@ public class MibbleBrowser {
     public void loadMib(String src) throws IOException, MibLoaderException {
         MibTreeBuilder  mb = MibTreeBuilder.getInstance();
         File            file = new File(src);
-        Mib             mib = null;
 
         if (file.exists()) {
             if (loader.getMib(file) != null) {
@@ -213,12 +212,17 @@ public class MibbleBrowser {
                 loader.removeAllDirs();
                 loader.addDir(file.getParentFile());
             }
-            mib = loader.load(file);
+            Mib[] mibs = loader.load(file);
             addFilePref(file);
+
+
+            for(Mib mib : mibs) {
+              mb.addMib(mib);
+            }
         } else {
-            mib = loader.load(src);
+            Mib mib = loader.load(src);
+            mb.addMib(mib);
         }
-        mb.addMib(mib);
     }
 
     /**

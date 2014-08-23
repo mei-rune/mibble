@@ -90,7 +90,7 @@ public class MibblePrinter {
     public static void main(String[] args) {
         MibLoader  loader = new MibLoader();
         int        printMode = MIB_PRINT_MODE;
-        Mib        mib = null;
+        Mib[]      mibs = null;
         int        pos = 0;
         File       file;
         URL        url;
@@ -128,12 +128,14 @@ public class MibblePrinter {
                 if (url == null) {
                     file = new File(args[pos]);
                     loader.addDir(file.getParentFile());
-                    mib = loader.load(file);
+                    mibs = loader.load(file);
                 } else {
-                    mib = loader.load(url);
+                    mibs = loader.load(url);
                 }
-                if (mib.getLog().warningCount() > 0) {
+                for(Mib mib: mibs) {
+                  if (mib.getLog().warningCount() > 0) {
                     mib.getLog().printTo(System.err);
+                  }
                 }
             }
         } catch (FileNotFoundException e) {
