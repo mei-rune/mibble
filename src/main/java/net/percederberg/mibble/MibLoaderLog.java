@@ -25,7 +25,8 @@ import java.io.File;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.io.PrintWriter;
-import java.util.ArrayList;
+import java.lang.Override;
+import java.util.HashSet;
 import java.util.Iterator;
 
 import net.percederberg.grammatica.parser.ParseException;
@@ -44,7 +45,7 @@ public class MibLoaderLog {
     /**
      * The log entries.
      */
-    private ArrayList entries = new ArrayList();
+    private HashSet entries = new HashSet();
 
     /**
      * The log error count.
@@ -170,8 +171,8 @@ public class MibLoaderLog {
      * @param log            the MIB loader log
      */
     public void addAll(MibLoaderLog log) {
-        for (int i = 0; i < log.entries.size(); i++) {
-            add((LogEntry) log.entries.get(i));
+        for (Object o : log.entries) {
+            add((LogEntry) o);
         }
     }
 
@@ -240,8 +241,8 @@ public class MibLoaderLog {
         LogEntry      entry;
         String        str;
 
-        for (int i = 0; i < entries.size(); i++) {
-            entry = (LogEntry) entries.get(i);
+        for (Object o : entries) {
+            entry = (LogEntry) o;
             buffer.setLength(0);
             switch (entry.getType()) {
             case LogEntry.ERROR:
@@ -491,6 +492,28 @@ public class MibLoaderLog {
          */
         public String readLine() {
             return location.readLine();
+        }
+
+        @Override
+        public boolean equals(Object o) {
+          if (this == o) return true;
+          if (o == null || getClass() != o.getClass()) return false;
+
+          LogEntry logEntry = (LogEntry) o;
+
+          if (type != logEntry.type) return false;
+          if (location != null ? !location.equals(logEntry.location) : logEntry.location != null) return false;
+          if (message != null ? !message.equals(logEntry.message) : logEntry.message != null) return false;
+
+          return true;
+        }
+
+        @Override
+        public int hashCode() {
+          int result = type;
+          result = 31 * result + (location != null ? location.hashCode() : 0);
+          result = 31 * result + (message != null ? message.hashCode() : 0);
+          return result;
         }
     }
 }

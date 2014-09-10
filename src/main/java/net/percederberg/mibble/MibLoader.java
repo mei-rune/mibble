@@ -29,6 +29,8 @@ import java.io.InputStreamReader;
 import java.io.Reader;
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
 
 import net.percederberg.grammatica.parser.ParserCreationException;
 import net.percederberg.grammatica.parser.ParserLogException;
@@ -89,7 +91,7 @@ public class MibLoader {
      * with this loader, in order to avoid loading some MIB files
      * multiple times (and thus duplicating import symbols).
      */
-    private ArrayList<Mib> mibs = new ArrayList<Mib>();
+    private HashMap<String, Mib> mibs = new HashMap<String, Mib>();
 
     /**
      * The queue of MIB files to load. This queue contains either
@@ -368,15 +370,15 @@ public class MibLoader {
      *         null otherwise
      */
     public Mib getMib(String name) {
-      Mib  mib;
-
-      for (int i = 0; i < mibs.size(); i++) {
-        mib = (Mib) mibs.get(i);
-        if (mib.equals(name)) {
-          return mib;
-        }
-      }
-      return null;
+//      Mib  mib;
+//
+//      for (int i = 0; i < mibs.size(); i++) {
+//        mib = (Mib) mibs.get(i);
+//        if (mib.equals(name)) {
+//          return mib;
+//        }
+//      }
+      return mibs.get(name);
     }
 
     /**
@@ -394,10 +396,9 @@ public class MibLoader {
      */
     public Mib[] getMib(File name) {
       ArrayList<Mib>  mibs = new ArrayList<Mib>();
-      for (int i = 0; i < mibs.size(); i++) {
-        Mib mib = (Mib) mibs.get(i);
-        if (mib.equals(name)) {
-          mibs.add(mib);
+      for (Map.Entry<String, Mib> entry : this.mibs.entrySet()) {
+        if (entry.getValue().equals(name)) {
+          mibs.add(entry.getValue());
         }
       }
       if(mibs.isEmpty()) {
@@ -416,11 +417,7 @@ public class MibLoader {
      * @since 2.2
      */
     public Mib[] getAllMibs() {
-        Mib[]  res;
-
-        res = new Mib[mibs.size()];
-        mibs.toArray(res);
-        return res;
+      return this.mibs.values().toArray(new Mib[this.mibs.size()]);
     }
 
     /**
@@ -603,11 +600,8 @@ public class MibLoader {
      *             correctly
      */
     private Mib[] load(MibSource src) throws IOException, MibLoaderException {
-
-        int           position;
         MibLoaderLog  log = new MibLoaderLog();
 
-        position = mibs.size();
         queue.clear();
         queue.add(src);
 
@@ -616,7 +610,9 @@ public class MibLoader {
         int count = loadQueue(log, processed);
         // Handle errors
         if (log.errorCount() > 0) {
-          mibs.removeAll(processed);
+            for(Mib mib : processed ) {
+              mibs.remove(mib.getName());
+            }
             throw new MibLoaderException(log);
         }
 
@@ -638,7 +634,14 @@ public class MibLoader {
       int count = loadQueue(log, processed);
       // Handle errors
       if (log.errorCount() > 0) {
-        mibs.removeAll(processed);
+        for(Mib mib : processed ) {
+          mibs.remove(mib.getName());
+        }
+        return null;
+      }
+
+      if(0 == count) {
+        return null;
       }
 
       Mib[] mibs = new Mib[count];
@@ -726,18 +729,16 @@ public class MibLoader {
     public void unload(Mib mib) throws MibLoaderException {
         Mib[]   referers;
         String  message;
-        int     pos;
 
-        pos = mibs.indexOf(mib);
-        if (pos >= 0) {
+        Mib old = mibs.remove(mib.getName());
+        if (null != old ) {
             referers = mib.getImportingMibs();
             if (referers.length > 0) {
                 message = "cannot be unloaded due to reference in " +
                           referers[0];
                 throw new MibLoaderException(mib.getFile(), message);
             }
-            mib = (Mib) mibs.remove(pos);
-            mib.clear();
+            old.clear();
         }
     }
 
@@ -758,8 +759,8 @@ public class MibLoader {
      * @since 2.9
      */
     public void unloadAll() {
-        for (int i = 0; i < mibs.size(); i++) {
-            ((Mib) mibs.get(i)).clear();
+        for (Map.Entry<String, Mib> entry : this.mibs.entrySet()) {
+            entry.getValue().clear();
         }
         reset();
     }
@@ -817,13 +818,21 @@ public class MibLoader {
                         ((Mib) list.get(i)).setLoaded(loaded);
                     }
 
-                    if(is_first) {
-                      is_first = false;
-                      count = list.size();
-                    }
 
-                    mibs.addAll(list);
-                    processed.addAll(list);
+                    for(Object o: list) {
+                      Mib mib = (Mib)o;
+                      Mib old = this.mibs.get(mib.getName());
+                      if(null == old) {
+                        if(is_first) {
+                          count ++;
+                        }
+                        this.mibs.put(mib.getName(), mib);
+                        processed.add(mib);
+                      } else {
+                        log.addWarning(src.getFile(), 0, 0, "'"+mib.getName()+"' is loaded in the file '"+old.getFile()+"'");
+                      }
+                    }
+                    is_first = false;
                 }
             } catch (MibLoaderException e) {
                 // Do nothing, errors are already in the log
@@ -846,6 +855,23 @@ public class MibLoader {
                 ((Mib) processed.get(i)).validate();
             } catch (MibLoaderException e) {
                 // Do nothing, errors are already in the log
+            }
+        }
+
+        if (log.errorCount() == 0) {
+            for (int i = processed.size() - 1; i >= 0; i--) {
+                Mib mib = (Mib) processed.get(i);
+                if(null != mib || "RFC1155-SMI".equals(mib.getName()) ||
+                   "RFC1158-MIB".equals(mib.getName()) ||
+                   "RFC-1212".equals(mib.getName())    ||
+                   "RFC-1213".equals(mib.getName())    ||
+                   "SNMPv2-TC".equals(mib.getName())   ||
+                   "SNMPv2-SMI".equals(mib.getName())  ||
+                   "SNMPv2-CONF".equals(mib.getName())) {
+                  for(Object symbol : mib.getAllSymbols()) {
+                    this.context.getSymbolsInBasicModuule().put(((MibSymbol)symbol).getName(), (MibSymbol)symbol);
+                  }
+                }
             }
         }
         return count;

@@ -29,6 +29,7 @@ import net.percederberg.mibble.MibSymbol;
 import net.percederberg.mibble.MibType;
 import net.percederberg.mibble.MibValue;
 import net.percederberg.mibble.MibValueSymbol;
+import net.percederberg.mibble.type.IntegerType;
 
 /**
  * A reference to a value symbol.<p>
@@ -99,11 +100,20 @@ public class ValueReference extends MibValue {
 
         MibSymbol  sym;
         MibValue   value;
+        MibValue   old_value;
         String     message;
 
         sym = getSymbol(log);
+        if(null == sym && type instanceof IntegerType) {
+          if("disable".equals(name)) {
+            sym = ((IntegerType) type).getSymbol("disabled");
+          } else if("enable".equals(name)) {
+            sym = ((IntegerType) type).getSymbol("enabled");
+          }
+        }
         if (sym instanceof MibValueSymbol) {
             value = ((MibValueSymbol) sym).getValue();
+            old_value = value;
             if (value != null) {
                 value = value.initialize(log, type);
             }

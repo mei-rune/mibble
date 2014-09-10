@@ -25,6 +25,8 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
+import java.lang.Object;
+import java.lang.Override;
 
 /**
  * A file location. This class contains a reference to an exact
@@ -136,5 +138,27 @@ public class FileLocation {
             return null;
         }
         return str;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) return true;
+      if (o == null || getClass() != o.getClass()) return false;
+
+      FileLocation that = (FileLocation) o;
+
+      if (column != that.column) return false;
+      if (line != that.line) return false;
+      if (file != null ? !file.equals(that.file) : that.file != null) return false;
+
+      return true;
+    }
+
+    @Override
+    public int hashCode() {
+      int result = file != null ? file.hashCode() : 0;
+      result = 31 * result + line;
+      result = 31 * result + column;
+      return result;
     }
 }

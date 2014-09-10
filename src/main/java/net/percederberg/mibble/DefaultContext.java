@@ -54,6 +54,7 @@ class DefaultContext implements MibContext {
      * The map of default symbols.
      */
     private HashMap symbols = new HashMap();
+    private HashMap basic_symbols = new HashMap();
 
     /**
      * Creates a new default context.
@@ -119,7 +120,16 @@ class DefaultContext implements MibContext {
      * @since 2.4
      */
     public MibSymbol findSymbol(String name, boolean expanded) {
-        return (MibSymbol) symbols.get(name);
+        MibSymbol symbol = (MibSymbol) symbols.get(name);
+        if(null != symbol) {
+            return symbol;
+        }
+
+        return (MibSymbol) basic_symbols.get(name);
+    }
+
+    public HashMap getSymbolsInBasicModuule() {
+        return basic_symbols;
     }
 
     /**

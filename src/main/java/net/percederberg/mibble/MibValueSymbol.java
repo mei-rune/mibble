@@ -93,10 +93,15 @@ public class MibValueSymbol extends MibSymbol {
      */
     public void initialize(MibLoaderLog log) throws MibException {
         ObjectIdentifierValue  oid;
+        MibValue               old_value = value;
+        MibType                old_type = type;
 
         if (type != null) {
             try {
                 type = type.initialize(this, log);
+                if(null == type) {
+                    throw new IllegalArgumentException("'type' of "+getName()+" is null");
+                }
             } catch (MibException e) {
                 log.addError(e.getLocation(), e.getMessage());
                 type = null;
@@ -105,6 +110,9 @@ public class MibValueSymbol extends MibSymbol {
         if (value != null) {
             try {
                 value = value.initialize(log, type);
+                if(null == value) {
+                    throw new IllegalArgumentException("'value' of "+getName()+" is null");
+                }
             } catch (MibException e) {
                 log.addError(e.getLocation(), e.getMessage());
                 value = null;
