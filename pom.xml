@@ -9,7 +9,7 @@
     <version>2.9.3.fix8</version>
 
     <properties>
-        <product.version>2.9.3.fix8</product.version>
+        <product.version>2.9.3.fix9</product.version>
     </properties>
 
     <repositories>
@@ -54,6 +54,11 @@
         </snapshotRepository>
     </distributionManagement>
     <dependencies>
+      <dependency>
+        <groupId>javax.servlet</groupId>
+        <artifactId>javax.servlet-api</artifactId>
+        <version>3.0.1</version>
+      </dependency>
     </dependencies>
     <build>
         <plugins>
