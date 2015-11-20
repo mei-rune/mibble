@@ -1,22 +1,15 @@
 /*
  * Parser.java
  *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public License
- * as published by the Free Software Foundation; either version 3
- * of the License, or (at your option) any later version.
+ * This program is free software: you can redistribute it and/or
+ * modify it under the terms of the BSD license.
  *
- * This library is distributed in the hope that it will be useful,
+ * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Lesser General Public License for more details.
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * LICENSE.txt file for more details.
  *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, write to the Free
- * Software Foundation, Inc., 59 Temple Place, Suite 330, Boston,
- * MA 02111-1307, USA.
- *
- * Copyright (c) 2003-2009 Per Cederberg. All rights reserved.
+ * Copyright (c) 2003-2015 Per Cederberg. All rights reserved.
  */
 
 package net.percederberg.grammatica.parser;
@@ -30,8 +23,8 @@ import java.util.HashMap;
  * A base parser class. This class provides the standard parser
  * interface, as well as token handling.
  *
- * @author   Per Cederberg, <per at percederberg dot net>
- * @version  1.5
+ * @author   Per Cederberg
+ * @version  1.6
  */
 public abstract class Parser {
 
@@ -46,7 +39,7 @@ public abstract class Parser {
     private Tokenizer tokenizer;
 
     /**
-     * The analyzer to use for callbacks.
+     * The analyzer to use for call-backs.
      */
     private Analyzer analyzer;
 
@@ -102,7 +95,7 @@ public abstract class Parser {
      * Creates a new parser.
      *
      * @param input          the input stream to read from
-     * @param analyzer       the analyzer callback to use
+     * @param analyzer       the analyzer call-back to use
      *
      * @throws ParserCreationException if the tokenizer couldn't be
      *             initialized correctly
@@ -337,6 +330,27 @@ public abstract class Parser {
     }
 
     /**
+     * Resets this parser for usage with another input stream. The
+     * associated tokenizer will also be reset and the analyzer
+     * replaced. This method will clear all the internal state and
+     * the error log in the parser. It is normally called in order to
+     * reuse a parser and tokenizer pair with multiple input streams,
+     * thereby avoiding the cost of re-analyzing the grammar
+     * structures.
+     *
+     * @param input          the new input stream to read
+     * @param analyzer       the new analyzer call-back to use
+     *
+     * @see Tokenizer#reset(java.io.Reader)
+     *
+     * @since 1.6
+     */
+    public void reset(Reader input, Analyzer analyzer) {
+        this.tokenizer.reset(input);
+        this.analyzer = analyzer;
+    }
+
+    /**
      * Parses the token stream and returns a parse tree. This method
      * will call prepare() if not previously called. It will also call
      * the reset() method, to making sure that only the
@@ -467,9 +481,9 @@ public abstract class Parser {
 
     /**
      * Handles the parser entering a production. This method calls the
-     * appropriate analyzer callback if the node is not hidden. Note
-     * that this method will not call any callback if an error
-     * requiring recovery has ocurred.
+     * appropriate analyzer call-back if the node is not hidden. Note
+     * that this method will not call any call-back if an error
+     * requiring recovery has occurred.
      *
      * @param node           the parse tree node
      */
@@ -485,9 +499,9 @@ public abstract class Parser {
 
     /**
      * Handles the parser leaving a production. This method calls the
-     * appropriate analyzer callback if the node is not hidden, and
+     * appropriate analyzer call-back if the node is not hidden, and
      * returns the result. Note that this method will not call any
-     * callback if an error requiring recovery has ocurred.
+     * call-back if an error requiring recovery has occurred.
      *
      * @param node           the parse tree node
      *
@@ -507,9 +521,9 @@ public abstract class Parser {
 
     /**
      * Handles the parser adding a child node to a production. This
-     * method calls the appropriate analyzer callback. Note that this
-     * method will not call any callback if an error requiring
-     * recovery has ocurred.
+     * method calls the appropriate analyzer call-back. Note that this
+     * method will not call any call-back if an error requiring
+     * recovery has occurred.
      *
      * @param node           the parent parse tree node
      * @param child          the child parse tree node, or null
@@ -534,7 +548,7 @@ public abstract class Parser {
 
     /**
      * Reads and consumes the next token in the queue. If no token was
-     * available for consumation, a parse error will be thrown.
+     * available for consumption, a parse error will be thrown.
      *
      * @return the token consumed
      *
@@ -558,7 +572,7 @@ public abstract class Parser {
 
     /**
      * Reads and consumes the next token in the queue. If no token was
-     * available for consumation, a parse error will be thrown. A
+     * available for consumption, a parse error will be thrown. A
      * parse error will also be thrown if the token id didn't match
      * the specified one.
      *
