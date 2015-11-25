@@ -16,7 +16,7 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
  * USA
  *
- * Copyright (c) 2004-2006 Per Cederberg. All rights reserved.
+ * Copyright (c) 2004-2013 Per Cederberg. All rights reserved.
  */
 
 package net.percederberg.mibble;
@@ -36,8 +36,8 @@ import net.percederberg.mibble.value.ObjectIdentifierValue;
  * not supported, an error message will be printed to the standard
  * output.
  *
- * @author   Per Cederberg, <per at percederberg dot net>
- * @version  2.7
+ * @author   Per Cederberg
+ * @version  2.10
  * @since    2.0
  */
 public class MibblePrinter {
@@ -88,12 +88,6 @@ public class MibblePrinter {
      * @param args           the command-line parameters
      */
     public static void main(String[] args) {
-        MibLoader  loader = new MibLoader();
-        int        printMode = MIB_PRINT_MODE;
-        Mib[]      mibs = null;
-        int        pos = 0;
-        File       file;
-        URL        url;
 
         // Check command-line arguments
         if (args.length < 1) {
@@ -103,6 +97,8 @@ public class MibblePrinter {
             printHelp("No MIB file or URL specified");
             System.exit(1);
         }
+        int printMode = MIB_PRINT_MODE;
+        int pos = 0;
         if (args[0].equals("--mib")) {
             printMode = MIB_PRINT_MODE;
             pos++;
@@ -118,26 +114,29 @@ public class MibblePrinter {
         }
 
         // Parse the MIB files
+        MibLoader loader = new MibLoader();
         try {
             for (; pos < args.length; pos++) {
+                URL url = null;
                 try {
                     url = new URL(args[pos]);
                 } catch (MalformedURLException e) {
-                    url = null;
+                    // Ignore error
                 }
+                Mib[] mibs = null;
                 if (url == null) {
-                    file = new File(args[pos]);
+                    File file = new File(args[pos]);
                     loader.addDir(file.getParentFile());
                     mibs = loader.load(file);
                 } else {
                     mibs = loader.load(url);
                 }
-                for(Mib mib: mibs) {
-                  if (mib.getLog().warningCount() > 0) {
-                    mib.getLog().printTo(System.err);
-                  }
+                 for(Mib mib : mibs) {
+                     if (mib.getLog().warningCount() > 0) {
+                         mib.getLog().printTo(System.err);
+                     }
+                 }
                 }
-            }
         } catch (FileNotFoundException e) {
             printError(args[pos], e);
             System.exit(1);
@@ -199,9 +198,7 @@ public class MibblePrinter {
      * @param mib            the MIB to print
      */
     private static void printDebug(Mib mib) {
-        Iterator  iter;
-
-        iter = mib.getAllSymbols().iterator();
+        Iterator<MibSymbol> iter = mib.getAllSymbols().iterator();
         while (iter.hasNext()) {
             System.out.println(iter.next());
             System.out.println();
@@ -217,22 +214,17 @@ public class MibblePrinter {
      * @param loader            the MIB loader
      */
     private static void printOidTree(MibLoader loader) {
-        Mib                    mib;
-        ObjectIdentifierValue  root = null;
-        Iterator               iter;
-        MibSymbol              symbol;
-        MibValue               value;
-
         if (loader.getAllMibs().length <= 0) {
             printError("no MIB modules have been loaded");
             return;
         }
-        mib = loader.getAllMibs()[0];
-        iter = mib.getAllSymbols().iterator();
+        Mib mib = loader.getAllMibs()[0];
+        ObjectIdentifierValue root = null;
+        Iterator<MibSymbol> iter = mib.getAllSymbols().iterator();
         while (root == null && iter.hasNext()) {
-            symbol = (MibSymbol) iter.next();
+            MibSymbol symbol = iter.next();
             if (symbol instanceof MibValueSymbol) {
-                value = ((MibValueSymbol) symbol).getValue();
+                MibValue value = ((MibValueSymbol) symbol).getValue();
                 if (value instanceof ObjectIdentifierValue) {
                     root = (ObjectIdentifierValue) value;
                 }
@@ -303,8 +295,7 @@ public class MibblePrinter {
      * @param e              the detailed exception
      */
     private static void printError(String file, FileNotFoundException e) {
-        StringBuffer  buffer = new StringBuffer();
-
+        StringBuilder buffer = new StringBuilder();
         buffer.append("couldn't open file:\n    ");
         buffer.append(file);
         printError(buffer.toString());
@@ -317,8 +308,7 @@ public class MibblePrinter {
      * @param e              the detailed exception
      */
     private static void printError(String url, IOException e) {
-        StringBuffer  buffer = new StringBuffer();
-
+        StringBuilder buffer = new StringBuilder();
         buffer.append("couldn't open URL:\n    ");
         buffer.append(url);
         printError(buffer.toString());

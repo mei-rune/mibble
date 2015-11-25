@@ -16,7 +16,7 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
  * USA
  *
- * Copyright (c) 2004 Per Cederberg. All rights reserved.
+ * Copyright (c) 2004-2013 Per Cederberg. All rights reserved.
  */
 
 package net.percederberg.mibble;
@@ -25,8 +25,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.io.PrintWriter;
-import java.lang.Override;
-import java.util.HashSet;
+import java.util.ArrayList;
 import java.util.Iterator;
 
 import net.percederberg.grammatica.parser.ParseException;
@@ -36,8 +35,8 @@ import net.percederberg.grammatica.parser.ParserLogException;
  * A MIB loader log. This class contains error and warning messages
  * from loading a MIB file and all imports not previously loaded.
  *
- * @author   Per Cederberg, <per at percederberg dot net>
- * @version  2.6
+ * @author   Per Cederberg
+ * @version  2.10
  * @since    2.0
  */
 public class MibLoaderLog {
@@ -45,7 +44,7 @@ public class MibLoaderLog {
     /**
      * The log entries.
      */
-    private HashSet entries = new HashSet();
+    private ArrayList<LogEntry> entries = new ArrayList<LogEntry>();
 
     /**
      * The log error count.
@@ -201,7 +200,7 @@ public class MibLoaderLog {
      *
      * @since 2.2
      */
-    public Iterator entries() {
+    public Iterator<LogEntry> entries() {
         return entries.iterator();
     }
 
@@ -237,12 +236,8 @@ public class MibLoaderLog {
      * @since 2.2
      */
     public void printTo(PrintWriter output, int margin) {
-        StringBuffer  buffer = new StringBuffer();
-        LogEntry      entry;
-        String        str;
-
-        for (Object o : entries) {
-            entry = (LogEntry) o;
+        StringBuilder buffer = new StringBuilder();
+        for (LogEntry entry : entries) {
             buffer.setLength(0);
             switch (entry.getType()) {
             case LogEntry.ERROR:
@@ -262,7 +257,7 @@ public class MibLoaderLog {
                 buffer.append(entry.getLineNumber());
             }
             buffer.append(":\n");
-            str = linebreakString(entry.getMessage(), "    ", margin);
+            String str = linebreakString(entry.getMessage(), "    ", margin);
             buffer.append(str);
             str = entry.readLine();
             if (str != null && str.length() >= entry.getColumnNumber()) {
@@ -294,15 +289,12 @@ public class MibLoaderLog {
      *         the absolute name otherwise
      */
     private String relativeFilename(File file) {
-        String  currentPath;
-        String  filePath;
-
         if (file == null) {
             return "<unknown file>";
         }
         try {
-            currentPath = new File(".").getCanonicalPath();
-            filePath = file.getCanonicalPath();
+            String currentPath = new File(".").getCanonicalPath();
+            String filePath = file.getCanonicalPath();
             if (filePath.startsWith(currentPath)) {
                 filePath = filePath.substring(currentPath.length());
                 if (filePath.charAt(0) == '/'
@@ -333,11 +325,9 @@ public class MibLoaderLog {
      * @return the new formatted string
      */
     private String linebreakString(String str, String prefix, int length) {
-        StringBuffer  buffer = new StringBuffer();
-        int           pos;
-
+        StringBuilder buffer = new StringBuilder();
         while (str.length() + prefix.length() > length) {
-            pos = str.lastIndexOf(' ', length - prefix.length());
+            int pos = str.lastIndexOf(' ', length - prefix.length());
             if (pos < 0) {
                 pos = str.indexOf(' ');
                 if (pos < 0) {
@@ -360,7 +350,7 @@ public class MibLoaderLog {
      * A log entry. This class holds all the details in an error or a
      * warning log entry.
      *
-     * @author   Per Cederberg, <per at percederberg dot net>
+     * @author   Per Cederberg
      * @version  2.2
      * @since    2.2
      */

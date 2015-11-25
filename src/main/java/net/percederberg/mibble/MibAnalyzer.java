@@ -16,7 +16,7 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
  * USA
  *
- * Copyright (c) 2004-2008 Per Cederberg. All rights reserved.
+ * Copyright (c) 2004-2013 Per Cederberg. All rights reserved.
  */
 
 package net.percederberg.mibble;
@@ -25,6 +25,8 @@ import java.io.File;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.BitSet;
+import java.util.Collections;
+import java.util.List;
 
 import net.percederberg.grammatica.parser.Node;
 import net.percederberg.grammatica.parser.ParseException;
@@ -85,8 +87,8 @@ import net.percederberg.mibble.value.ValueReference;
  * type and value references will be created whenever an identifier
  * is encountered.
  *
- * @author   Per Cederberg, <per at percederberg dot net>
- * @version  2.9
+ * @author   Per Cederberg
+ * @version  2.10
  * @since    2.0
  */
 class MibAnalyzer extends Asn1Analyzer {
@@ -94,7 +96,7 @@ class MibAnalyzer extends Asn1Analyzer {
     /**
      * The list of MIB modules found.
      */
-    private ArrayList mibs = new ArrayList();
+    private ArrayList<Mib> mibs = new ArrayList<Mib>();
 
     /**
      * The MIB file being analyzed.
@@ -129,7 +131,7 @@ class MibAnalyzer extends Asn1Analyzer {
      *
      * @see #getContext()
      */
-    private ArrayList contextStack = new ArrayList();
+    private ArrayList<MibContext> contextStack = new ArrayList<MibContext>();
 
     /**
      * The implicit tags flag.
@@ -154,7 +156,7 @@ class MibAnalyzer extends Asn1Analyzer {
      * all references to parsed data.
      */
     public void reset() {
-        mibs = new ArrayList();
+        mibs = new ArrayList<Mib>();
         currentMib = null;
         baseContext = null;
         contextStack.clear();
@@ -166,7 +168,7 @@ class MibAnalyzer extends Asn1Analyzer {
      *  
      * @return a list of MIB modules
      */
-    public ArrayList getMibs() {
+    public ArrayList<Mib> getMibs() {
         return mibs;
     }
 
@@ -181,19 +183,16 @@ class MibAnalyzer extends Asn1Analyzer {
      */
     protected Node exitBinaryString(Token node) {
         String  str = node.getImage();
-        Number  value;
-
         str = str.substring(1, str.length() - 2);
         if (str.length() == 0) {
-            value = new Integer(0);
+            node.addValue(new Integer(0));
         } else if (str.length() < 32) {
-            value = new Integer(Integer.parseInt(str, 2));
+            node.addValue(new Integer(Integer.parseInt(str, 2)));
         } else if (str.length() < 64) {
-            value = new Long(Long.parseLong(str, 2));
+            node.addValue(new Long(Long.parseLong(str, 2)));
         } else {
-            value = new BigInteger(str, 2);
+            node.addValue(new BigInteger(str, 2));
         }
-        node.addValue(value);
         node.addValue(str);
         return node;
     }
@@ -209,19 +208,16 @@ class MibAnalyzer extends Asn1Analyzer {
      */
     protected Node exitHexadecimalString(Token node) {
         String  str = node.getImage();
-        Number  value;
-
         str = str.substring(1, str.length() - 2);
         if (str.length() == 0) {
-            value = new Integer(0);
+            node.addValue(new Integer(0));
         } else if (str.length() < 8) {
-            value = new Integer(Integer.parseInt(str, 16));
+            node.addValue(new Integer(Integer.parseInt(str, 16)));
         } else if (str.length() < 16) {
-            value = new Long(Long.parseLong(str, 16));
+            node.addValue(new Long(Long.parseLong(str, 16)));
         } else {
-            value = new BigInteger(str, 16);
+            node.addValue(new BigInteger(str, 16));
         }
-        node.addValue(value);
         node.addValue(str);
         return node;
     }
@@ -237,15 +233,10 @@ class MibAnalyzer extends Asn1Analyzer {
      */
     protected Node exitQuotedString(Token node) {
         String  str = node.getImage();
-        int     pos;
-
         str = str.substring(1, str.length() - 1);
-        do {
-            pos = str.indexOf("\"\"");
-            if (pos >= 0) {
-                str = str.substring(0, pos) + '"' + str.substring(pos + 2);
+        if (str.indexOf("\"\"") >= 0) {
+            str = str.replace("\"\"", "\"");
             }
-        } while (pos >= 0);
         node.addValue(str);
         return node;
     }
@@ -272,16 +263,13 @@ class MibAnalyzer extends Asn1Analyzer {
      */
     protected Node exitNumberString(Token node) {
         String  str = node.getImage();
-        Number  value;
-
         if (str.length() < 10) {
-            value = new Integer(str);
+            node.addValue(new Integer(str));
         } else if (str.length() < 19) {
-            value = new Long(str);
+            node.addValue(new Long(str));
         } else {
-            value = new BigInteger(str);
+            node.addValue(new BigInteger(str));
         }
-        node.addValue(value);
         return node;
     }
 
@@ -376,9 +364,7 @@ class MibAnalyzer extends Asn1Analyzer {
     protected Node exitTagDefault(Production node)
         throws ParseException {
 
-        Node  child;
-
-        child = getChildAt(node, 0);
+        Node child = getChildAt(node, 0);
         if (child.getId() == Asn1Constants.EXPLICIT) {
             implicitTags = false;
         } else {
@@ -396,13 +382,11 @@ class MibAnalyzer extends Asn1Analyzer {
      * @return the node to add to the parse tree
      */
     protected Node exitImportList(Production node) {
-        ArrayList   imports = getChildValues(node);
-        MibImport   imp;
-        MibContext  current = loader.getDefaultContext();
+        ArrayList<MibImport> imports = getChildValues(node);
         boolean     addMissingSmi = true;
 
         for (int i = 0; i < imports.size(); i++) {
-            imp = (MibImport) imports.get(i);
+            MibImport imp = imports.get(i);
             if (imp.getName().startsWith("RFC1065-SMI") ||
                 imp.getName().startsWith("RFC1155-SMI") ||
                 imp.getName().startsWith("SNMPv2-SMI")) {
@@ -414,13 +398,15 @@ class MibAnalyzer extends Asn1Analyzer {
             // TODO: Ugly hack that adds a "hidden" SNMPv1 SMI as the last
             //       import, but without any named symbols (triggering
             //       warnings for each symbol used).
-            imp = new MibImport(loader, getLocation(node), "RFC1155-SMI", new ArrayList());
+            List<String> empty = Collections.<String> emptyList();
+            MibImport imp = new MibImport(loader, getLocation(node), "RFC1155-SMI", empty);
             loader.scheduleLoad(imp.getName());
             currentMib.addImport(imp);
             imports.add(imp);
         }
+        MibContext current = loader.getDefaultContext();
         for (int i = imports.size() - 1; i >= 0; i--) {
-            imp = (MibImport) imports.get(i);
+            MibImport imp = imports.get(i);
             current = new CompoundContext(imp, current);
         }
         baseContext = new CompoundContext(currentMib, current);
@@ -442,20 +428,15 @@ class MibAnalyzer extends Asn1Analyzer {
     protected Node exitSymbolsFromModule(Production node)
         throws ParseException {
 
-        MibImport  imp;
-        String     module;
-        ArrayList  symbols;
-        Node       child;
-
         // Create MIB reference
-        child = getChildAt(node, 0);
-        symbols = child.getAllValues();
+        Node child = getChildAt(node, 0);
+        List<String> symbols = child.getAllValues();
         if (symbols == null) {
-            symbols = new ArrayList();
+            symbols = Collections.emptyList();
         }
         child = getChildAt(node, 2);
-        module = getStringValue(child, 0);
-        imp = new MibImport(loader, getLocation(child), module, symbols);
+        String module = getStringValue(child, 0);
+        MibImport imp = new MibImport(loader, getLocation(child), module, symbols);
 
         // Schedule MIB loading
         loader.scheduleLoad(module);
@@ -504,11 +485,8 @@ class MibAnalyzer extends Asn1Analyzer {
     protected Node exitMacroDefinition(Production node)
         throws ParseException {
         
-        String          name;
-        MibMacroSymbol  symbol;
-
         // Check macro name
-        name = getStringValue(getChildAt(node, 0), 0);
+        String name = getStringValue(getChildAt(node, 0), 0);
         if (currentMib.getSymbol(name) != null) {
             throw new ParseException(
                 ParseException.ANALYSIS_ERROR,
@@ -518,7 +496,7 @@ class MibAnalyzer extends Asn1Analyzer {
         }
 
         // Create macro symbol
-        symbol = new MibMacroSymbol(getLocation(node),
+        MibMacroSymbol symbol = new MibMacroSymbol(getLocation(node),
                                     currentMib,
                                     name);
         symbol.setComment(MibAnalyzerUtil.getComments(node));
@@ -551,12 +529,8 @@ class MibAnalyzer extends Asn1Analyzer {
     protected Node exitTypeAssignment(Production node)
         throws ParseException {
 
-        String         name;
-        MibType        type;
-        MibTypeSymbol  symbol;
-
         // Check type name
-        name = getStringValue(getChildAt(node, 0), 0);
+        String name = getStringValue(getChildAt(node, 0), 0);
         if (currentMib.getSymbol(name) != null) {
             throw new ParseException(
                 ParseException.ANALYSIS_ERROR,
@@ -571,8 +545,8 @@ class MibAnalyzer extends Asn1Analyzer {
         }
 
         // Create type symbol
-        type = (MibType) getValue(getChildAt(node, 2), 0);
-        symbol = new MibTypeSymbol(getLocation(node),
+        MibType type = (MibType) getValue(getChildAt(node, 2), 0);
+        MibTypeSymbol symbol = new MibTypeSymbol(getLocation(node),
                                    currentMib,
                                    name,
                                    type);
@@ -608,11 +582,8 @@ class MibAnalyzer extends Asn1Analyzer {
         MibContext     local = getContext();
         String         name = null;
         Object         value = null;
-        FileLocation   loc = getLocation(node);
-        Node           child;
-
         for (int i = 0; i < node.getChildCount(); i++) {
-            child = node.getChildAt(i);
+            Node child = node.getChildAt(i);
             switch (child.getId()) {
             case Asn1Constants.MODULE_REFERENCE:
                 name = getStringValue(child, 0);
@@ -630,12 +601,16 @@ class MibAnalyzer extends Asn1Analyzer {
                 break;
             case Asn1Constants.VALUE_OR_CONSTRAINT_LIST:
                 value = getValue(child, 0);
+                break;
+            default:
+                // Ignored node
             }
         }
+        FileLocation loc = getLocation(node);
         if (value instanceof Constraint) {
             value = new TypeReference(loc, local, name, (Constraint) value);
-        } else if (value instanceof ArrayList) {
-            value = new TypeReference(loc, local, name, (ArrayList) value);
+        } else if (value instanceof ArrayList<?>) {
+            value = new TypeReference(loc, local, name, (ArrayList<?>) value);
         } else {
             value = new TypeReference(loc, local, name);
         }
@@ -699,22 +674,17 @@ class MibAnalyzer extends Asn1Analyzer {
      * @return the node to add to the parse tree
      */
     protected Node exitIntegerType(Production node) {
-        IntegerType  type;
-        ArrayList    values;
-        Object       obj;
-
-        values = getChildValues(node);
+        ArrayList<?> values = getChildValues(node);
         if (values.size() == 0) {
-            type = new IntegerType();
+            node.addValue(new IntegerType());
         } else {
-            obj = values.get(0);
+            Object obj = values.get(0);
             if (obj instanceof ArrayList) {
-                type = new IntegerType((ArrayList) obj);
+                node.addValue(new IntegerType((ArrayList<?>) obj));
             } else {
-                type = new IntegerType((Constraint) obj);
+                node.addValue(new IntegerType((Constraint) obj));
             }
         }
-        node.addValue(type);
         return node;
     }
 
@@ -738,16 +708,12 @@ class MibAnalyzer extends Asn1Analyzer {
      * @return the node to add to the parse tree
      */
     protected Node exitStringType(Production node) {
-        StringType  type;
-        ArrayList   values;
-
-        values = getChildValues(node);
+        ArrayList<Constraint> values = getChildValues(node);
         if (values.size() == 0) {
-            type = new StringType();
+            node.addValue(new StringType());
         } else {
-            type = new StringType((Constraint) values.get(0));
+            node.addValue(new StringType(values.get(0)));
         }
-        node.addValue(type);
         return node;
     }
 
@@ -759,22 +725,17 @@ class MibAnalyzer extends Asn1Analyzer {
      * @return the node to add to the parse tree
      */
     protected Node exitBitStringType(Production node) {
-        BitSetType  type;
-        ArrayList   values;
-        Object      obj;
-
-        values = getChildValues(node);
+        ArrayList<?> values = getChildValues(node);
         if (values.size() == 0) {
-            type = new BitSetType();
+            node.addValue(new BitSetType());
         } else {
-            obj = values.get(0);
+            Object obj = values.get(0);
             if (obj instanceof ArrayList) {
-                type = new BitSetType((ArrayList) obj);
+                node.addValue(new BitSetType((ArrayList<?>) obj));
             } else {
-                type = new BitSetType((Constraint) obj);
+                node.addValue(new BitSetType((Constraint) obj));
             }
         }
-        node.addValue(type);
         return node;
     }
 
@@ -797,9 +758,7 @@ class MibAnalyzer extends Asn1Analyzer {
      * @return the node to add to the parse tree
      */
     protected Node exitSequenceType(Production node) {
-        ArrayList  elements = getChildValues(node);
-
-        node.addValue(new SequenceType(elements));
+        node.addValue(new SequenceType(getChildValues(node)));
         return node;
     }
 
@@ -815,12 +774,9 @@ class MibAnalyzer extends Asn1Analyzer {
     protected Node exitSequenceOfType(Production node)
         throws ParseException {
 
-        MibType     type;
+        Node child = getChildAt(node, node.getChildCount() - 1);
+        MibType type = (MibType) getValue(child, 0);
         Constraint  c = null;
-        Node        child;
-
-        child = getChildAt(node, node.getChildCount() - 1);
-        type = (MibType) getValue(child, 0);
         if (node.getChildCount() == 4) {
             child = getChildAt(node, 1);
             c = (Constraint) getValue(child, 0);
@@ -917,19 +873,15 @@ class MibAnalyzer extends Asn1Analyzer {
     protected Node exitTaggedType(Production node)
         throws ParseException {
 
-        MibType     type;
-        MibTypeTag  tag;
         boolean     implicit = implicitTags;
-        Node        child;
-
-        child = getChildAt(node, 0);
-        tag = (MibTypeTag) getValue(child, 0);
+        Node child = getChildAt(node, 0);
+        MibTypeTag tag = (MibTypeTag) getValue(child, 0);
         child = getChildAt(node, 1);
         if (child.getId() == Asn1Constants.EXPLICIT_OR_IMPLICIT_TAG) {
             implicit = ((Boolean) getValue(child, 0)).booleanValue();
         }
         child = getChildAt(node, node.getChildCount() - 1);
-        type = (MibType) getValue(child, 0);
+        MibType type = (MibType) getValue(child, 0);
         type.setTag(implicit, tag);
         node.addValue(type);
         return node;
@@ -944,15 +896,14 @@ class MibAnalyzer extends Asn1Analyzer {
      *         null if no parse tree should be created
      */
     protected Node exitTag(Production node) {
-        ArrayList  values = getChildValues(node);
         int        category = MibTypeTag.CONTEXT_SPECIFIC_CATEGORY;
-        int        value;
-
+        int value = 0;
+        ArrayList<Number> values = getChildValues(node);
         if (values.size() == 1) {
-            value = ((Number) values.get(0)).intValue();
+            value = values.get(0).intValue();
         } else {
-            category = ((Integer) values.get(0)).intValue();
-            value = ((Number) values.get(1)).intValue();
+            category = values.get(0).intValue();
+            value = values.get(1).intValue();
         }
         node.addValue(new MibTypeTag(category, value));
         return node;
@@ -969,16 +920,13 @@ class MibAnalyzer extends Asn1Analyzer {
      */
     protected Node exitClass(Production node) throws ParseException {
         Node  child = getChildAt(node, 0);
-        int   category;
-
+        int category = MibTypeTag.CONTEXT_SPECIFIC_CATEGORY;
         if (child.getId() == Asn1Constants.UNIVERSAL) {
             category = MibTypeTag.UNIVERSAL_CATEGORY;
         } else if (child.getId() == Asn1Constants.APPLICATION) {
             category = MibTypeTag.APPLICATION_CATEGORY;
         } else if (child.getId() == Asn1Constants.PRIVATE) {
             category = MibTypeTag.PRIVATE_CATEGORY;
-        } else {
-            category = MibTypeTag.CONTEXT_SPECIFIC_CATEGORY;
         }
         node.addValue(new Integer(category));
         return node;
@@ -1047,10 +995,7 @@ class MibAnalyzer extends Asn1Analyzer {
         throws ParseException {
 
         String   name = null;
-        MibType  type;
-        Node     child;
-
-        child = getChildAt(node, 0);
+        Node child = getChildAt(node, 0);
         if (child.getId() == Asn1Constants.IDENTIFIER_STRING) {
             name = getStringValue(child, 0);
             child = getChildAt(node, 1);
@@ -1062,7 +1007,7 @@ class MibAnalyzer extends Asn1Analyzer {
                 child.getStartLine(),
                 child.getStartColumn());
         }
-        type = new ElementType(name, (MibType) getValue(child, 0));
+        MibType type = new ElementType(name, (MibType) getValue(child, 0));
         type.setComment(MibAnalyzerUtil.getComments(node));
         node.addValue(type);
         return node;
@@ -1104,13 +1049,10 @@ class MibAnalyzer extends Asn1Analyzer {
      * @return the node to add to the parse tree
      */
     protected Node exitNamedNumberList(Production node) {
-        MibValueSymbol  symbol;
-        Node            child;
-
         for (int i = 0; i < node.getChildCount(); i++) {
-            child = node.getChildAt(i);
+            Node child = node.getChildAt(i);
             if (child.getId() == Asn1Constants.NAMED_NUMBER) {
-                symbol = (MibValueSymbol) child.getValue(0);
+                MibValueSymbol symbol = (MibValueSymbol) child.getValue(0);
                 symbol.setComment(MibAnalyzerUtil.getComments(child));
             }
         }
@@ -1130,13 +1072,9 @@ class MibAnalyzer extends Asn1Analyzer {
     protected Node exitNamedNumber(Production node)
         throws ParseException {
 
-        MibValueSymbol  symbol;
-        String          name;
-        MibValue        value;
-
-        name = getStringValue(getChildAt(node, 0), 0);
-        value = (MibValue) getValue(getChildAt(node, 2), 0);
-        symbol = new MibValueSymbol(getLocation(node),
+        String name = getStringValue(getChildAt(node, 0), 0);
+        MibValue value = (MibValue) getValue(getChildAt(node, 2), 0);
+        MibValueSymbol symbol = new MibValueSymbol(getLocation(node),
                                     null,
                                     name,
                                     null,
@@ -1168,12 +1106,9 @@ class MibAnalyzer extends Asn1Analyzer {
      */
     protected Node exitConstraintList(Production node) {
         Constraint  result = null;
-        ArrayList   values;
-        Constraint  c;
-
-        values = getChildValues(node);
+        ArrayList<Constraint> values = getChildValues(node);
         for (int i = values.size() - 1; i >= 0; i--) {
-            c = (Constraint) values.get(i);
+            Constraint c = values.get(i);
             if (result == null) {
                 result = c;
             } else {
@@ -1220,13 +1155,7 @@ class MibAnalyzer extends Asn1Analyzer {
     protected Node exitValueConstraint(Production node)
         throws ParseException {
 
-        ArrayList  list = getChildValues(node);
-        MibValue   lower = null;
-        MibValue   upper = null;
-        Boolean    strictLower = null;
-        Boolean    strictUpper = null;
-        Object     obj;
-
+        ArrayList<?> list = getChildValues(node);
         if (list.size() == 0) {
             throw new ParseException(
                 ParseException.ANALYSIS_ERROR,
@@ -1234,11 +1163,15 @@ class MibAnalyzer extends Asn1Analyzer {
                 node.getStartLine(),
                 node.getStartColumn());
         } else if (list.size() == 1) {
-            lower = (MibValue) list.get(0);
-            obj = new ValueConstraint(getLocation(node), lower);
+            MibValue val = (MibValue) list.get(0);
+            node.addValue(new ValueConstraint(getLocation(node), val));
         } else {
+            MibValue lower = null;
+            MibValue upper = null;
+            Boolean strictLower = null;
+            Boolean strictUpper = null;
             for (int i = 0; i < list.size(); i++) {
-                obj = list.get(i);
+                Object obj = list.get(i);
                 if (obj instanceof Boolean && strictLower == null) {
                     strictLower = (Boolean) obj;
                 } else if (obj instanceof Boolean) {
@@ -1255,13 +1188,12 @@ class MibAnalyzer extends Asn1Analyzer {
             if (strictUpper == null) {
                 strictUpper = Boolean.FALSE;
             }
-            obj = new ValueRangeConstraint(getLocation(node),
+            node.addValue(new ValueRangeConstraint(getLocation(node),
                                            lower,
                                            strictLower.booleanValue(),
                                            upper,
-                                           strictUpper.booleanValue());
+                                                   strictUpper.booleanValue()));
         }
-        node.addValue(obj);
         return node;
     }
 
@@ -1278,10 +1210,8 @@ class MibAnalyzer extends Asn1Analyzer {
     protected Node exitValueRange(Production node)
         throws ParseException {
 
-        Node  child;
-
         // Check for strict lower end point
-        child = getChildAt(node, 0);
+        Node child = getChildAt(node, 0);
         if (child.getId() == Asn1Constants.LESS_THAN) {
             node.addValue(Boolean.TRUE);
         } else {
@@ -1341,9 +1271,7 @@ class MibAnalyzer extends Asn1Analyzer {
     protected Node exitSizeConstraint(Production node)
         throws ParseException {
 
-        Constraint  c;
-
-        c = (Constraint) getValue(getChildAt(node, 1), 0);
+        Constraint c = (Constraint) getValue(getChildAt(node, 1), 0);
         node.addValue(new SizeConstraint(getLocation(node), c));
         return node;
     }
@@ -1407,13 +1335,8 @@ class MibAnalyzer extends Asn1Analyzer {
     protected Node exitValueAssignment(Production node)
         throws ParseException {
 
-        String          name;
-        MibType         type;
-        MibValue        value;
-        MibValueSymbol  symbol;
-
         // Check value name
-        name = getStringValue(getChildAt(node, 0), 0);
+        String name = getStringValue(getChildAt(node, 0), 0);
         if (currentMib.getSymbol(name) != null) {
             throw new ParseException(
                 ParseException.ANALYSIS_ERROR,
@@ -1428,9 +1351,9 @@ class MibAnalyzer extends Asn1Analyzer {
         }
 
         // Create value symbol
-        type = (MibType) getValue(getChildAt(node, 1), 0);
-        value = (MibValue) getValue(getChildAt(node, 3), 0);
-        symbol = new MibValueSymbol(getLocation(node),
+        MibType type = (MibType) getValue(getChildAt(node, 1), 0);
+        MibValue value = (MibValue) getValue(getChildAt(node, 3), 0);
+        MibValueSymbol symbol = new MibValueSymbol(getLocation(node),
                                     currentMib,
                                     name,
                                     type,
@@ -1464,15 +1387,11 @@ class MibAnalyzer extends Asn1Analyzer {
     protected Node exitDefinedValue(Production node)
         throws ParseException {
 
-        ValueReference  ref;
-        MibContext      local = getContext();
-        String          name;
-        Node            child;
-
         // Check for module reference
-        child = getChildAt(node, 0);
+        MibContext local = getContext();
+        Node child = getChildAt(node, 0);
         if (child.getId() == Asn1Constants.MODULE_REFERENCE) {
-            name = getStringValue(child, 0);
+            String name = getStringValue(child, 0);
             local = currentMib.getImport(name);
             if (local == null) {
                 throw new ParseException(
@@ -1485,8 +1404,8 @@ class MibAnalyzer extends Asn1Analyzer {
         }
 
         // Create value reference
-        name = getStringValue(child, 0);
-        ref = new ValueReference(getLocation(node), local, name);
+        String name = getStringValue(child, 0);
+        ValueReference ref = new ValueReference(getLocation(node), local, name);
         node.addValue(ref);
         return node;
     }
@@ -1549,8 +1468,7 @@ class MibAnalyzer extends Asn1Analyzer {
     protected Node exitSpecialRealValue(Production node)
         throws ParseException {
 
-        Number  number;
-
+        Number number = null;
         if (getChildAt(node, 0).getId() == Asn1Constants.PLUS_INFINITY) {
             number = new Float(Float.POSITIVE_INFINITY);
         } else {
@@ -1572,8 +1490,7 @@ class MibAnalyzer extends Asn1Analyzer {
     protected Node exitNumberValue(Production node)
         throws ParseException {
 
-        Number  number;
-
+        Number number = null;
         if (getChildAt(node, 0).getId() == Asn1Constants.MINUS) {
             number = (Number) getValue(getChildAt(node, 1), 0);
             if (number instanceof Integer) {
@@ -1602,13 +1519,9 @@ class MibAnalyzer extends Asn1Analyzer {
     protected Node exitBinaryValue(Production node)
         throws ParseException {
 
-        Node    child;
-        Number  number;
-        String  text;
-
-        child = getChildAt(node, 0);
-        number = (Number) child.getValue(0);
-        text = (String) child.getValue(1);
+        Node child = getChildAt(node, 0);
+        Number number = (Number) child.getValue(0);
+        String text = (String) child.getValue(1);
         node.addValue(new BinaryNumberValue(number, text.length()));
         return node;
     }
@@ -1625,13 +1538,9 @@ class MibAnalyzer extends Asn1Analyzer {
     protected Node exitHexadecimalValue(Production node)
         throws ParseException {
 
-        Node    child;
-        Number  number;
-        String  text;
-
-        child = getChildAt(node, 0);
-        number = (Number) child.getValue(0);
-        text = (String) child.getValue(1);
+        Node child = getChildAt(node, 0);
+        Number number = (Number) child.getValue(0);
+        String text = (String) child.getValue(1);
         node.addValue(new HexNumberValue(number, text.length()));
         return node;
     }
@@ -1648,9 +1557,7 @@ class MibAnalyzer extends Asn1Analyzer {
     protected Node exitStringValue(Production node)
         throws ParseException {
 
-        String  str;
-
-        str = getStringValue(getChildAt(node, 0), 0);
+        String str = getStringValue(getChildAt(node, 0), 0);
         node.addValue(new StringValue(str));
         return node;
     }
@@ -1684,13 +1591,11 @@ class MibAnalyzer extends Asn1Analyzer {
      * @throws ParseException if the node analysis discovered errors
      */
     protected Node exitBitValue(Production node) throws ParseException {
-        ArrayList     components = getChildValues(node);
         BitSet        bits = new BitSet();
-        ArrayList     values = new ArrayList();
-        NamedNumber   number;
-
+        ArrayList<ValueReference> values = new ArrayList<ValueReference>();
+        ArrayList<NamedNumber> components = getChildValues(node);
         for (int i = 0; i < components.size(); i++) {
-            number = (NamedNumber) components.get(i);
+            NamedNumber number = components.get(i);
             if (number.hasNumber()) {
                 bits.set(number.getNumber().intValue());
             } else {
@@ -1713,12 +1618,8 @@ class MibAnalyzer extends Asn1Analyzer {
     protected Node exitObjectIdentifierValue(Production node)
         throws ParseException {
 
-        ArrayList     components = getChildValues(node);
-        MibValue      parent = null;
-        NamedNumber   number;
-        int           value;
-
         // Check for minimum number of components
+        ArrayList<NamedNumber> components = getChildValues(node);
         if (components.size() < 1) {
             throw new ParseException(
                 ParseException.ANALYSIS_ERROR,
@@ -1728,10 +1629,11 @@ class MibAnalyzer extends Asn1Analyzer {
         }
 
         // Analyze components
+        MibValue parent = null;
         for (int i = 0; i < components.size(); i++) {
-            number = (NamedNumber) components.get(i);
+            NamedNumber number = components.get(i);
             if (number.hasNumber()) {
-                value = number.getNumber().intValue();
+                int value = number.getNumber().intValue();
                 if (parent == null && value == 0) {
                     parent = new ValueReference(getLocation(node),
                                                 getContext(),
@@ -1817,22 +1719,17 @@ class MibAnalyzer extends Asn1Analyzer {
     protected Node exitNameOrNumber(Production node)
         throws ParseException {
 
-        NamedNumber     value;
-        Object          obj;
-        ValueReference  ref;
-
-        obj = getValue(getChildAt(node, 0), 0);
+        Object obj = getValue(getChildAt(node, 0), 0);
         if (obj instanceof Number) {
-            value = new NamedNumber((Number) obj);
+            node.addValue(new NamedNumber((Number) obj));
         } else if (obj instanceof String) {
-            ref = new ValueReference(getLocation(node),
+            ValueReference ref = new ValueReference(getLocation(node),
                                      getContext(),
                                      (String) obj);
-            value = new NamedNumber((String) obj, ref);
+            node.addValue(new NamedNumber((String) obj, ref));
         } else {
-            value = (NamedNumber) obj;
+            node.addValue(obj);
         }
-        node.addValue(value);
         return node;
     }
 
@@ -1848,18 +1745,13 @@ class MibAnalyzer extends Asn1Analyzer {
     protected Node exitNameAndNumber(Production node)
         throws ParseException {
 
-        NamedNumber  value;
-        String       name;
-        Object       obj;
-
-        name = getStringValue(getChildAt(node, 0), 0);
-        obj = getValue(getChildAt(node, 2), 0);
+        String name = getStringValue(getChildAt(node, 0), 0);
+        Object obj = getValue(getChildAt(node, 2), 0);
         if (obj instanceof Number) {
-            value = new NamedNumber(name, (Number) obj);
+            node.addValue(new NamedNumber(name, (Number) obj));
         } else {
-            value = new NamedNumber(name, (ValueReference) obj);
+            node.addValue(new NamedNumber(name, (ValueReference) obj));
         }
-        node.addValue(value);
         return node;
     }
 
@@ -1899,19 +1791,14 @@ class MibAnalyzer extends Asn1Analyzer {
     protected Node exitSnmpModuleIdentityMacroType(Production node)
         throws ParseException {
 
-        String     update;
-        String     org;
-        String     contact;
-        String     desc;
-        ArrayList  revisions = new ArrayList();
-
         currentMib.setSmiVersion(2);
-        update = getStringValue(getChildAt(node, 1), 0);
-        org = getStringValue(getChildAt(node, 2), 0);
-        contact = getStringValue(getChildAt(node, 3), 0);
-        desc = getStringValue(getChildAt(node, 4), 0);
+        String update = getStringValue(getChildAt(node, 1), 0);
+        String org = getStringValue(getChildAt(node, 2), 0);
+        String contact = getStringValue(getChildAt(node, 3), 0);
+        String desc = getStringValue(getChildAt(node, 4), 0);
+        ArrayList<SnmpRevision> revisions = new ArrayList<SnmpRevision>();
         for (int i = 5; i < node.getChildCount(); i++) {
-            revisions.add(getValue(getChildAt(node, i), 0));
+            revisions.add((SnmpRevision) getValue(getChildAt(node, i), 0));
         }
         node.addValue(new SnmpModuleIdentity(update,
                                              org,
@@ -1933,16 +1820,11 @@ class MibAnalyzer extends Asn1Analyzer {
     protected Node exitSnmpObjectIdentityMacroType(Production node)
         throws ParseException {
 
-        SnmpStatus  status;
-        String      desc;
-        String      ref;
-
         currentMib.setSmiVersion(2);
-        status = (SnmpStatus) getValue(getChildAt(node, 1), 0);
-        desc = getStringValue(getChildAt(node, 2), 0);
-        if (node.getChildCount() <= 3) {
-            ref = null;
-        } else {
+        SnmpStatus status = (SnmpStatus) getValue(getChildAt(node, 1), 0);
+        String desc = getStringValue(getChildAt(node, 2), 0);
+        String ref = null;
+        if (node.getChildCount() > 3) {
             ref = getStringValue(getChildAt(node, 3), 0);
         }
         node.addValue(new SnmpObjectIdentity(status, desc, ref));
@@ -1960,10 +1842,8 @@ class MibAnalyzer extends Asn1Analyzer {
     protected void childSnmpObjectTypeMacroType(Production node, Node child)
         throws ParseException {
 
-        MibType  type;
-
         if (child.getId() == Asn1Constants.SNMP_SYNTAX_PART) {
-            type = (MibType) getValue(child, 0);
+            MibType type = (MibType) getValue(child, 0);
             if (type instanceof MibContext) {
                 pushContextExtension((MibContext) type);
             }
@@ -1981,10 +1861,10 @@ class MibAnalyzer extends Asn1Analyzer {
      *
      * @throws ParseException if the node analysis discovered errors
      */
+    @SuppressWarnings("unchecked")
     protected Node exitSnmpObjectTypeMacroType(Production node)
         throws ParseException {
 
-        SnmpObjectType  type;
         MibType         syntax = null;
         String          units = null;
         SnmpAccess      access = null;
@@ -1993,10 +1873,9 @@ class MibAnalyzer extends Asn1Analyzer {
         String          ref = null;
         Object          index = null;
         MibValue        defVal = null;
-        Node            child;
 
         for (int i = 0; i < node.getChildCount(); i++) {
-            child = node.getChildAt(i);
+            Node child = node.getChildAt(i);
             switch (child.getId()) {
             case Asn1Constants.SNMP_SYNTAX_PART:
                 syntax = (MibType) getValue(child, 0);
@@ -2026,28 +1905,29 @@ class MibAnalyzer extends Asn1Analyzer {
             case Asn1Constants.SNMP_DEF_VAL_PART:
                 defVal = (MibValue) getValue(child, 0);
                 break;
+            default:
+                // Ignore other nodes
             }
         }
         if (index instanceof ArrayList) {
-            type = new SnmpObjectType(syntax,
+            node.addValue(new SnmpObjectType(syntax,
                                       units,
                                       access,
                                       status,
                                       desc,
                                       ref,
-                                      (ArrayList) index,
-                                      defVal);
+                                             (ArrayList<SnmpIndex>) index,
+                                             defVal));
         } else {
-            type = new SnmpObjectType(syntax,
+            node.addValue(new SnmpObjectType(syntax,
                                       units,
                                       access,
                                       status,
                                       desc,
                                       ref,
                                       (MibValue) index,
-                                      defVal);
+                                             defVal));
         }
-        node.addValue(type);
         return node;
     }
 
@@ -2063,18 +1943,16 @@ class MibAnalyzer extends Asn1Analyzer {
     protected Node exitSnmpNotificationTypeMacroType(Production node)
         throws ParseException {
 
-        ArrayList   objects = new ArrayList();
+        currentMib.setSmiVersion(2);
+        ArrayList<MibValue> objects = new ArrayList<MibValue>();
         SnmpStatus  status = null;
         String      desc = null;
         String      ref = null;
-        Node        child;
-
-        currentMib.setSmiVersion(2);
         for (int i = 0; i < node.getChildCount(); i++) {
-            child = node.getChildAt(i);
+            Node child = node.getChildAt(i);
             switch (child.getId()) {
             case Asn1Constants.SNMP_OBJECTS_PART:
-                objects = (ArrayList) getValue(child, 0);
+                objects = (ArrayList<MibValue>) getValue(child, 0);
                 break;
             case Asn1Constants.SNMP_STATUS_PART:
                 status = (SnmpStatus) getValue(child, 0);
@@ -2085,6 +1963,8 @@ class MibAnalyzer extends Asn1Analyzer {
             case Asn1Constants.SNMP_REFER_PART:
                 ref = getStringValue(child, 0);
                 break;
+            default:
+                // Ignore other nodes
             }
         }
         node.addValue(new SnmpNotificationType(objects,
@@ -2107,13 +1987,11 @@ class MibAnalyzer extends Asn1Analyzer {
         throws ParseException {
 
         MibValue   enterprise = null;
-        ArrayList  vars = new ArrayList();
+        ArrayList<MibValue> vars = new ArrayList<MibValue>();
         String     desc = null;
         String     ref = null;
-        Node       child;
-
         for (int i = 0; i < node.getChildCount(); i++) {
-            child = node.getChildAt(i);
+            Node child = node.getChildAt(i);
             switch (child.getId()) {
             case Asn1Constants.SNMP_ENTERPRISE_PART:
                 enterprise = (MibValue) getValue(child, 0);
@@ -2127,6 +2005,8 @@ class MibAnalyzer extends Asn1Analyzer {
             case Asn1Constants.SNMP_REFER_PART:
                 ref = getStringValue(child, 0);
                 break;
+            default:
+                // Ignore other nodes
             }
         }
         node.addValue(new SnmpTrapType(enterprise, vars, desc, ref));
@@ -2145,16 +2025,14 @@ class MibAnalyzer extends Asn1Analyzer {
     protected Node exitSnmpTextualConventionMacroType(Production node)
         throws ParseException {
 
+        currentMib.setSmiVersion(2);
         String      display = null;
         SnmpStatus  status = null;
         String      desc = null;
         String      ref = null;
         MibType     syntax = null;
-        Node        child;
-
-        currentMib.setSmiVersion(2);
         for (int i = 0; i < node.getChildCount(); i++) {
-            child = node.getChildAt(i);
+            Node child = node.getChildAt(i);
             switch (child.getId()) {
             case Asn1Constants.SNMP_DISPLAY_PART:
                 display = getStringValue(child, 0);
@@ -2172,6 +2050,8 @@ class MibAnalyzer extends Asn1Analyzer {
                 syntax = (MibType) getValue(child, 0);
                 syntax.setComment(MibAnalyzerUtil.getComments(child));
                 break;
+            default:
+                // Ignore other nodes
             }
         }
         node.addValue(new SnmpTextualConvention(display,
@@ -2194,18 +2074,12 @@ class MibAnalyzer extends Asn1Analyzer {
     protected Node exitSnmpObjectGroupMacroType(Production node)
         throws ParseException {
 
-        ArrayList   objects;
-        SnmpStatus  status;
-        String      desc;
-        String      ref;
-
         currentMib.setSmiVersion(2);
-        objects = (ArrayList) getValue(getChildAt(node, 1), 0);
-        status = (SnmpStatus) getValue(getChildAt(node, 2), 0);
-        desc = getStringValue(getChildAt(node, 3), 0);
-        if (node.getChildCount() <= 4) {
-            ref = null;
-        } else {
+        ArrayList<MibValue> objects = (ArrayList<MibValue>) getValue(getChildAt(node, 1), 0);
+        SnmpStatus status = (SnmpStatus) getValue(getChildAt(node, 2), 0);
+        String desc = getStringValue(getChildAt(node, 3), 0);
+        String ref = null;
+        if (node.getChildCount() > 4) {
             ref = getStringValue(getChildAt(node, 4), 0);
         }
         node.addValue(new SnmpObjectGroup(objects, status, desc, ref));
@@ -2224,18 +2098,12 @@ class MibAnalyzer extends Asn1Analyzer {
     protected Node exitSnmpNotificationGroupMacroType(Production node)
         throws ParseException {
 
-        ArrayList   notifications;
-        SnmpStatus  status;
-        String      desc;
-        String      ref;
-
         currentMib.setSmiVersion(2);
-        notifications = getChildAt(node, 1).getAllValues();
-        status = (SnmpStatus) getValue(getChildAt(node, 2), 0);
-        desc = getStringValue(getChildAt(node, 3), 0);
-        if (node.getChildCount() <= 4) {
-            ref = null;
-        } else {
+        ArrayList<MibValue> notifications = getChildAt(node, 1).getAllValues();
+        SnmpStatus status = (SnmpStatus) getValue(getChildAt(node, 2), 0);
+        String desc = getStringValue(getChildAt(node, 3), 0);
+        String ref = null;
+        if (node.getChildCount() > 4) {
             ref = getStringValue(getChildAt(node, 4), 0);
         }
         node.addValue(new SnmpNotificationGroup(notifications,
@@ -2260,12 +2128,10 @@ class MibAnalyzer extends Asn1Analyzer {
         SnmpStatus  status = null;
         String      desc = null;
         String      ref = null;
-        ArrayList   modules = new ArrayList();
-        Node        child;
-
+        ArrayList<SnmpModule> modules = new ArrayList<SnmpModule>();
         currentMib.setSmiVersion(2);
         for (int i = 0; i < node.getChildCount(); i++) {
-            child = node.getChildAt(i);
+            Node child = node.getChildAt(i);
             switch (child.getId()) {
             case Asn1Constants.SNMP_STATUS_PART:
                 status = (SnmpStatus) getValue(child, 0);
@@ -2277,8 +2143,10 @@ class MibAnalyzer extends Asn1Analyzer {
                 ref = getStringValue(child, 0);
                 break;
             case Asn1Constants.SNMP_MODULE_PART:
-                modules.add(getValue(child, 0));
+                modules.add((SnmpModule) getValue(child, 0));
                 break;
+            default:
+                // Ignore other nodes
             }
         }
         node.addValue(new SnmpModuleCompliance(status,
@@ -2304,12 +2172,10 @@ class MibAnalyzer extends Asn1Analyzer {
         SnmpStatus  status = null;
         String      desc = null;
         String      ref = null;
-        ArrayList   modules = new ArrayList();
-        Node        child;
-
+        ArrayList<SnmpModuleSupport> modules = new ArrayList<SnmpModuleSupport>();
         currentMib.setSmiVersion(2);
         for (int i = 0; i < node.getChildCount(); i++) {
-            child = node.getChildAt(i);
+            Node child = node.getChildAt(i);
             switch (child.getId()) {
             case Asn1Constants.SNMP_PRODUCT_RELEASE_PART:
                 prod = getStringValue(child, 0);
@@ -2324,8 +2190,10 @@ class MibAnalyzer extends Asn1Analyzer {
                 ref = getStringValue(child, 0);
                 break;
             case Asn1Constants.SNMP_MODULE_SUPPORT_PART:
-                modules.add(getValue(child, 0));
+                modules.add((SnmpModuleSupport) getValue(child, 0));
                 break;
+            default:
+                // Ignore other nodes
             }
         }
         node.addValue(new SnmpAgentCapabilities(prod,
@@ -2396,13 +2264,9 @@ class MibAnalyzer extends Asn1Analyzer {
     protected Node exitSnmpRevisionPart(Production node)
         throws ParseException {
 
-        SnmpRevision  rev;
-        MibValue      value;
-        String        desc;
-
-        value = (MibValue) getValue(getChildAt(node, 1), 0);
-        desc = getStringValue(getChildAt(node, 3), 0);
-        rev = new SnmpRevision(value, desc);
+        MibValue value = (MibValue) getValue(getChildAt(node, 1), 0);
+        String desc = getStringValue(getChildAt(node, 3), 0);
+        SnmpRevision rev = new SnmpRevision(value, desc);
         rev.setComment(MibAnalyzerUtil.getComments(node));
         node.addValue(rev);
         return node;
@@ -2420,11 +2284,8 @@ class MibAnalyzer extends Asn1Analyzer {
     protected Node exitSnmpStatusPart(Production node)
         throws ParseException {
 
-        Node    child;
-        String  name;
-
-        child = getChildAt(node, 1);
-        name = getStringValue(child, 0);
+        Node child = getChildAt(node, 1);
+        String name = getStringValue(child, 0);
         if (name.equals("mandatory")) {
             node.addValue(SnmpStatus.MANDATORY);
         } else if (name.equals("optional")) {
@@ -2494,15 +2355,12 @@ class MibAnalyzer extends Asn1Analyzer {
     protected Node exitSnmpAccessPart(Production node)
         throws ParseException {
 
-        Node    child;
-        String  name;
-
-        child = getChildAt(node, 0);
+        Node child = getChildAt(node, 0);
         if (child.getId() != Asn1Constants.ACCESS) {
             currentMib.setSmiVersion(2);
         }
         child = getChildAt(node, 1);
-        name = getStringValue(child, 0);
+        String name = getStringValue(child, 0);
         if (name.equals("read-only")) {
             node.addValue(SnmpAccess.READ_ONLY);
         } else if (name.equals("read-write")) {
@@ -2568,20 +2426,18 @@ class MibAnalyzer extends Asn1Analyzer {
      * @return the node to add to the parse tree
      */
     protected Node exitIndexValue(Production node) {
-        SnmpIndex  index;
         Object     obj = getChildValues(node).get(0);
 
         switch (node.getChildAt(0).getId()) {
         case Asn1Constants.VALUE:
-            index = new SnmpIndex(false, (MibValue) obj, null);
+            node.addValue(new SnmpIndex(false, (MibValue) obj, null));
             break;
         case Asn1Constants.IMPLIED:
-            index = new SnmpIndex(true, (MibValue) obj, null);
+            node.addValue(new SnmpIndex(true, (MibValue) obj, null));
             break;
         default:
-            index = new SnmpIndex(false, null, (MibType) obj);
+            node.addValue(new SnmpIndex(false, null, (MibType) obj));
         }
-        node.addValue(index);
         return node;
     }
 
@@ -2693,15 +2549,12 @@ class MibAnalyzer extends Asn1Analyzer {
     protected Node exitSnmpModulePart(Production node)
         throws ParseException {
 
-        SnmpModule module;
         String     name = null;
-        ArrayList  groups = new ArrayList();
-        ArrayList  modules = new ArrayList();
+        ArrayList<MibValue> groups = new ArrayList<MibValue>();
+        ArrayList<SnmpCompliance> compliances = new ArrayList<SnmpCompliance>();
         String     comment = null;
-        Node       child;
-
         for (int i = 0; i < node.getChildCount(); i++) {
-            child = node.getChildAt(i);
+            Node child = node.getChildAt(i);
             switch (child.getId()) {
             case Asn1Constants.MODULE:
                 comment = MibAnalyzerUtil.getComments(child);
@@ -2711,14 +2564,16 @@ class MibAnalyzer extends Asn1Analyzer {
                 popContext();
                 break;
             case Asn1Constants.SNMP_MANDATORY_PART:
-                groups = (ArrayList) getValue(child, 0);
+                groups = (ArrayList<MibValue>) getValue(child, 0);
                 break;
             case Asn1Constants.SNMP_COMPLIANCE_PART:
-                modules.add(getValue(child, 0));
+                compliances.add((SnmpCompliance) getValue(child, 0));
                 break;
+            default:
+                // Ignore other nodes
             }
         }
-        module = new SnmpModule(name, groups, modules);
+        SnmpModule module = new SnmpModule(name, groups, compliances);
         module.setComment(comment);
         node.addValue(module);
         return node;
@@ -2739,15 +2594,12 @@ class MibAnalyzer extends Asn1Analyzer {
     protected Node exitSnmpModuleImport(Production node)
         throws ParseException {
 
-        MibImport  imp;
-        String     module;
-
         // Load referenced module
-        module = getStringValue(getChildAt(node, 0), 0);
+        String module = getStringValue(getChildAt(node, 0), 0);
         loader.scheduleLoad(module);
 
         // Create module reference and context
-        imp = new MibImport(loader, getLocation(node), module, null);
+        MibImport imp = new MibImport(loader, getLocation(node), module, null);
         currentMib.addImport(imp);
         pushContextExtension(imp);
 
@@ -2792,13 +2644,9 @@ class MibAnalyzer extends Asn1Analyzer {
     protected Node exitComplianceGroup(Production node)
         throws ParseException {
 
-        SnmpCompliance  comp;
-        MibValue        value;
-        String          desc;
-
-        value = (MibValue) getValue(getChildAt(node, 1), 0);
-        desc = getStringValue(getChildAt(node, 2), 0);
-        comp = new SnmpCompliance(true, value, null, null, null, desc);
+        MibValue value = (MibValue) getValue(getChildAt(node, 1), 0);
+        String desc = getStringValue(getChildAt(node, 2), 0);
+        SnmpCompliance comp = new SnmpCompliance(true, value, null, null, null, desc);
         comp.setComment(MibAnalyzerUtil.getComments(node));
         node.addValue(comp);
         return node;
@@ -2816,16 +2664,13 @@ class MibAnalyzer extends Asn1Analyzer {
     protected Node exitComplianceObject(Production node)
         throws ParseException {
 
-        SnmpCompliance  comp;
         MibValue        value = null;
         MibType         syntax = null;
         MibType         write = null;
         SnmpAccess      access = null;
         String          desc = null;
-        Node            child;
-
         for (int i = 0; i < node.getChildCount(); i++) {
-            child = node.getChildAt(i);
+            Node child = node.getChildAt(i);
             switch (child.getId()) {
             case Asn1Constants.VALUE:
                 value = (MibValue) getValue(child, 0);
@@ -2844,9 +2689,11 @@ class MibAnalyzer extends Asn1Analyzer {
             case Asn1Constants.SNMP_DESCR_PART:
                 desc = getStringValue(child, 0);
                 break;
+            default:
+                // Ignore other nodes
             }
         }
-        comp = new SnmpCompliance(false, value, syntax, write, access, desc);
+        SnmpCompliance comp = new SnmpCompliance(false, value, syntax, write, access, desc);
         comp.setComment(MibAnalyzerUtil.getComments(node));
         node.addValue(comp);
         return node;
@@ -2889,12 +2736,10 @@ class MibAnalyzer extends Asn1Analyzer {
         throws ParseException {
 
         String     module = null;
-        ArrayList  groups = null;
-        ArrayList  vars = new ArrayList();
-        Node       child;
-
+        ArrayList<MibValue>  groups = null;
+        ArrayList<SnmpVariation> vars = new ArrayList<SnmpVariation>();
         for (int i = 0; i < node.getChildCount(); i++) {
-            child = node.getChildAt(i);
+            Node child = node.getChildAt(i);
             switch (child.getId()) {
             case Asn1Constants.SNMP_MODULE_IMPORT:
                 module = getStringValue(child, 0);
@@ -2904,8 +2749,10 @@ class MibAnalyzer extends Asn1Analyzer {
                 groups = child.getAllValues();
                 break;
             case Asn1Constants.SNMP_VARIATION_PART:
-                vars.add(getValue(child, 0));
+                vars.add((SnmpVariation) getValue(child, 0));
                 break;
+            default:
+                // Ignore other nodes
             }
         }
         node.addValue(new SnmpModuleSupport(module, groups, vars));
@@ -2924,14 +2771,11 @@ class MibAnalyzer extends Asn1Analyzer {
     protected void childSnmpVariationPart(Production node, Node child)
         throws ParseException {
 
-        MibType     type;
-        MibContext  context;
-
         if (child.getId() == Asn1Constants.VALUE) {
-            context = new MibTypeContext(getValue(child, 0));
+            MibContext context = new MibTypeContext(getValue(child, 0));
             pushContextExtension(context);
         } else if (child.getId() == Asn1Constants.SNMP_SYNTAX_PART) {
-            type = (MibType) getValue(child, 0);
+            MibType type = (MibType) getValue(child, 0);
             if (type instanceof MibContext) {
                 pushContextExtension((MibContext) type);
             }
@@ -2955,13 +2799,11 @@ class MibAnalyzer extends Asn1Analyzer {
         MibType     syntax = null;
         MibType     write = null;
         SnmpAccess  access = null;
-        ArrayList   reqs = new ArrayList();
+        ArrayList<MibValue> reqs = new ArrayList<MibValue>();
         MibValue    defVal = null;
         String      desc = null;
-        Node        child;
-
         for (int i = 0; i < node.getChildCount(); i++) {
-            child = node.getChildAt(i);
+            Node child = node.getChildAt(i);
             switch (child.getId()) {
             case Asn1Constants.VALUE:
                 value = (MibValue) getValue(child, 0);
@@ -2982,7 +2824,7 @@ class MibAnalyzer extends Asn1Analyzer {
                 access = (SnmpAccess) getValue(child, 0);
                 break;
             case Asn1Constants.SNMP_CREATION_PART:
-                reqs = (ArrayList) getValue(child, 0);
+                reqs = (ArrayList<MibValue>) getValue(child, 0);
                 break;
             case Asn1Constants.SNMP_DEF_VAL_PART:
                 defVal = (MibValue) getValue(child, 0);
@@ -2990,6 +2832,8 @@ class MibAnalyzer extends Asn1Analyzer {
             case Asn1Constants.SNMP_DESCR_PART:
                 desc = getStringValue(child, 0);
                 break;
+            default:
+                // Ignore other nodes
             }
         }
         node.addValue(new SnmpVariation(value,
@@ -3034,7 +2878,7 @@ class MibAnalyzer extends Asn1Analyzer {
      * @return the top context on the context stack
      */
     private MibContext getContext() {
-        return (MibContext) contextStack.get(contextStack.size() - 1);
+        return contextStack.get(contextStack.size() - 1);
     }
 
     /**

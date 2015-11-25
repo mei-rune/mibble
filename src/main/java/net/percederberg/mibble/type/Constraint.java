@@ -29,12 +29,11 @@ import net.percederberg.mibble.MibValue;
 /**
  * A MIB type constraint.
  *
- * @author   Per Cederberg, <per at percederberg dot net>
+ * @author   Per Cederberg
  * @version  2.6
  * @since    2.0
  */
 public interface Constraint {
-
     /**
      * Initializes the constraint. This will remove all levels of
      * indirection present, such as references to types or values. No

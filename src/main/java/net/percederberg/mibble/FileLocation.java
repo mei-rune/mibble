@@ -16,7 +16,7 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
  * USA
  *
- * Copyright (c) 2004 Per Cederberg. All rights reserved.
+ * Copyright (c) 2004-2013 Per Cederberg. All rights reserved.
  */
 
 package net.percederberg.mibble;
@@ -25,15 +25,13 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
-import java.lang.Object;
-import java.lang.Override;
 
 /**
  * A file location. This class contains a reference to an exact
  * location inside a text file.
  *
- * @author   Per Cederberg, <per at percederberg dot net>
- * @version  2.0
+ * @author   Per Cederberg
+ * @version  2.10
  * @since    2.0
  */
 public class FileLocation {
@@ -114,30 +112,34 @@ public class FileLocation {
      *         null if not found
      */
     public String readLine() {
-        BufferedReader  input;
-        String          str = null;
-        int             count = 1;
-        int             ch;
-
         if (file == null || line < 0) {
             return null;
         }
+        BufferedReader input = null;
         try {
             input = new BufferedReader(new FileReader(file));
             // Only count line-feed characters in files with invalid line
             // termination sequences. The default readLine() method doesn't
             // quite do the right thing in those cases... (bug #16252)
-            while (count < line && (ch = input.read()) >= 0) {
-                if (ch == '\n') {
+            int count = 1;
+            int chr;
+            while (count < line && (chr = input.read()) >= 0) {
+                if (chr == '\n') {
                     count++;
                 }
             }
-            str = input.readLine();
-            input.close();
+            return input.readLine();
         } catch (IOException e) {
             return null;
+        } finally {
+            if (input != null) {
+                try {
+                    input.close();
+                } catch (IOException ignore) {
+                    // Nothing to do here
+                }
+            }
         }
-        return str;
     }
 
     @Override

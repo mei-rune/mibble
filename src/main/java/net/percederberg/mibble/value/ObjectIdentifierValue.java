@@ -16,7 +16,7 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
  * USA
  *
- * Copyright (c) 2004-2006 Per Cederberg. All rights reserved.
+ * Copyright (c) 2004-2014 Per Cederberg. All rights reserved.
  */
 
 package net.percederberg.mibble.value;
@@ -35,8 +35,8 @@ import net.percederberg.mibble.MibValueSymbol;
  * An object identifier value. This class stores the component
  * identifier values in a tree hierarchy.
  *
- * @author   Per Cederberg, <per at percederberg dot net>
- * @version  2.8
+ * @author   Per Cederberg
+ * @version  2.10
  * @since    2.0
  */
 public class ObjectIdentifierValue extends MibValue {
@@ -61,7 +61,7 @@ public class ObjectIdentifierValue extends MibValue {
     /**
      * The component children.
      */
-    private final ArrayList children = new ArrayList();
+    private ArrayList<ObjectIdentifierValue> children = new ArrayList<ObjectIdentifierValue>();
 
     /**
      * The object identifier component name.
@@ -176,27 +176,18 @@ public class ObjectIdentifierValue extends MibValue {
         }
         initialized = true;
 
-        ValueReference         ref = null;
-        ObjectIdentifierValue  oid = null;
-        MibValue               old_parent = parent;
+        ValueReference ref = null;
 
         if (parent == null) {
             return this;
         } else if (parent instanceof ValueReference) {
             ref = (ValueReference) parent;
         }
+
         parent = parent.initialize(log, type);
-        if(null == parent) {
-          throw new MibException(ref.getLocation(),
-              "referenced value is null.");
-        }
-        if(this == parent) {
-          throw new MibException(ref.getLocation(),
-              "referenced value is own.");
-        }
         if (ref != null) {
             if (parent instanceof ObjectIdentifierValue) {
-                oid = (ObjectIdentifierValue) parent;
+                ObjectIdentifierValue oid = (ObjectIdentifierValue) parent;
                 oid.addChild(log, location, this);
             } else {
                 throw new MibException(ref.getLocation(),
@@ -205,6 +196,7 @@ public class ObjectIdentifierValue extends MibValue {
             }
         }
         location = null;
+        cachedNumericValue = null;
         if (parent instanceof ObjectIdentifierValue) {
             MibValue res = ((ObjectIdentifierValue) parent).getChildByValue(value);
             if(null == res) {
@@ -242,21 +234,20 @@ public class ObjectIdentifierValue extends MibValue {
      * only be called by the MIB loader.
      */
     protected void clear() {
-        Mib                    mib;
-        ArrayList              copy;
-        ObjectIdentifierValue  child;
 
         // Recursively clear all children in same MIB
-        mib = getMib();
-        copy = (ArrayList) children.clone();
-        for (int i = 0; i < copy.size(); i++) {
-            child = (ObjectIdentifierValue) copy.get(i);
-            if (mib == null || mib == child.getMib()) {
-                child.clear();
+        if (children != null) {
+            Mib mib = getMib();
+            ArrayList<ObjectIdentifierValue> copy = new ArrayList<ObjectIdentifierValue>(children);
+            for (int i = 0; i < copy.size(); i++) {
+                ObjectIdentifierValue child = copy.get(i);
+                if (mib == null || mib == child.getMib()) {
+                    child.clear();
+                }
             }
         }
 
-        // Remove parent reference if all children were cleared 
+        // Remove parent reference if all children were cleared
         if (getChildCount() <= 0) {
             if (parent != null) {
                 getParent().children.remove(this);
@@ -272,8 +263,9 @@ public class ObjectIdentifierValue extends MibValue {
 
     /**
      * Compares this object with the specified object for order. This
-     * method will only compare the string representations with each
-     * other.
+     * method will only attempt to compare each numerical OID part with
+     * the other value, but may fall back to comparing the string
+     * representations.
      *
      * @param obj            the object to compare to
      *
@@ -284,7 +276,35 @@ public class ObjectIdentifierValue extends MibValue {
      * @since 2.6
      */
     public int compareTo(Object obj) {
-        return toString().compareTo(obj.toString());
+        if (obj instanceof ObjectIdentifierValue) {
+            return compareToOid((ObjectIdentifierValue) obj);
+        } else {
+            return toString().compareTo(obj.toString());
+        }
+    }
+
+    /**
+     * Compares this object with the specified OID for order.
+     *
+     * @param oid            the OID to compare to
+     *
+     * @return less than zero if this OID is less than the specified,
+     *         zero if the OIDs are equal, or
+     *         greater than zero otherwise
+     *
+     * @since 2.10
+     */
+    private int compareToOid(ObjectIdentifierValue oid) {
+        int[] one = getParentValues();
+        int[] two = oid.getParentValues();
+        for (int i = 0; i < one.length; i++) {
+            if (i >= two.length) {
+                return 1;
+            } else if (one[i] != two[i]) {
+                return one[i] - two[i];
+            }
+        }
+        return (one.length == two.length) ? 0 : -1;
     }
 
     /**
@@ -321,6 +341,39 @@ public class ObjectIdentifierValue extends MibValue {
         } else {
             return null;
         }
+    }
+
+    /**
+     * Returns an array of all the numeric values the OID chain. The root
+     * ancestor value is placed at index zero.
+     *
+     * @return an array of the numeric OID values
+     *
+     * @since 2.10
+     */
+    public int[] getParentValues() {
+        return getParentValuesInternal(1);
+    }
+
+    /**
+     * Returns an array of all the numeric values the OID chain. The root
+     * ancestor value is placed at index zero.
+     *
+     * @param length         the minimum array length
+     *
+     * @return an array of the numeric OID values
+     *
+     * @since 2.10
+     */
+    private int[] getParentValuesInternal(int length) {
+        int[] res;
+        if (parent instanceof ObjectIdentifierValue) {
+            res = ((ObjectIdentifierValue) parent).getParentValuesInternal(length + 1);
+        } else {
+            res = new int[length];
+        }
+        res[res.length - length] = value;
+        return res;
     }
 
     /**
@@ -392,13 +445,13 @@ public class ObjectIdentifierValue extends MibValue {
      * ordered by their value, not necessarily in the order in which
      * they appear in the original MIB file.
      *
-     * @param index          the child position, 0 <= index < count
+     * @param index          the child position, starting from 0
      *
      * @return the child object identifier value, or
      *         null if not found
      */
     public ObjectIdentifierValue getChild(int index) {
-        return (ObjectIdentifierValue) children.get(index);
+        return children.get(index);
     }
 
     /**
@@ -416,10 +469,8 @@ public class ObjectIdentifierValue extends MibValue {
      * @since 2.5
      */
     public ObjectIdentifierValue getChildByName(String name) {
-        ObjectIdentifierValue  child;
-
         for (int i = 0; i < children.size(); i++) {
-            child = (ObjectIdentifierValue) children.get(i);
+            ObjectIdentifierValue child = children.get(i);
             if (name.equals(child.getName())) {
                 return child;
             }
@@ -430,7 +481,10 @@ public class ObjectIdentifierValue extends MibValue {
     /**
      * Returns a child object identifier value. The children are
      * searched by their numerical value. This method uses binary
-     * search and therefore has time complexity O(log(n)).
+     * search and therefore has time complexity O(log(n)) for the
+     * worst case. Special handling of the common case (a child
+     * array without numeric gaps), allow for O(1) performance most
+     * of the time.
      *
      * @param value          the child value
      *
@@ -440,28 +494,24 @@ public class ObjectIdentifierValue extends MibValue {
      * @since 2.5
      */
     public ObjectIdentifierValue getChildByValue(int value) {
-        ObjectIdentifierValue  child;
-        int                    low = 0;
-        int                    high = 0;
-        int                    pos;
-
         if(null == children) {
-          return null;
+            return null;
         }
 
-        high = children.size();
-        if (low < value && value <= high) {
-            // Default to that the value is really the index - 1 
-            pos = value - 1;
-        } else {
-            // Otherwise use normal interval midpoint
-            pos = (low + high) / 2;
-        }
-        while (low < high) {
-            child = (ObjectIdentifierValue) children.get(pos);
-            if (child.getValue() == value) {
+        if (value > 0 && value <= children.size()) {
+            ObjectIdentifierValue child = children.get(value - 1);
+            if (child.value == value) {
                 return child;
-            } else if (child.getValue() < value) {
+            }
+        }
+        int low = 0;
+        int high = children.size();
+        int pos = (low + high) / 2;
+        while (low < high) {
+            ObjectIdentifierValue child = children.get(pos);
+            if (child.value == value) {
+                return child;
+            } else if (child.value < value) {
                 low = pos + 1;
             } else {
                 high = pos;
@@ -489,6 +539,102 @@ public class ObjectIdentifierValue extends MibValue {
     }
 
     /**
+     * Searches the OID tree for the best match. The returned OID
+     * value may be either an ancestor or a descendant node (or this
+     * node itself). The search requires the full numeric OID value
+     * (from the root).
+     *
+     * @param oid            the numeric OID string to search for
+     *
+     * @return the best matching OID value, or
+     *         null if no partial match was found
+     *
+     * @since 2.10
+     */
+    public ObjectIdentifierValue find(String oid) {
+        if (oid.startsWith(".")) {
+            oid = oid.substring(1);
+        }
+        if (oid.length() > 0 && toString().startsWith(oid)) {
+            return findAncestor(oid);
+        } else if (oid.startsWith(toString())) {
+            return findDescendant(oid);
+        } else {
+            return null;
+        }
+    }
+
+    /**
+     * Searches the OID tree for the best matching ancestor. The
+     * returned OID will be an exact match of this node or one of its
+     * parents. The search requires the full numeric OID value (from
+     * the root).
+     *
+     * @param oid            the numeric OID string to search for
+     *
+     * @return the matching ancestor OID value, or
+     *         null if no match was found
+     *
+     * @since 2.10
+     */
+    public ObjectIdentifierValue findAncestor(String oid) {
+        if (oid.startsWith(".")) {
+            oid = oid.substring(1);
+        }
+        ObjectIdentifierValue ancestor = this;
+        while (ancestor != null && !ancestor.toString().equals(oid)) {
+            ancestor = ancestor.getParent();
+        }
+        return ancestor;
+    }
+
+    /**
+     * Searches the OID tree for the best matching descendant. The
+     * returned OID value will be the longest matching child node (or
+     * this node itself), but doesn't have to be an exact match. The
+     * search requires the full numeric OID value (from the root).
+     *
+     * @param oid            the numeric OID string to search for
+     *
+     * @return the best matching descendant OID value, or
+     *         null if no match was found
+     *
+     * @since 2.10
+     */
+    public ObjectIdentifierValue findDescendant(String oid) {
+        if (oid.startsWith(".")) {
+            oid = oid.substring(1);
+        }
+        if (!oid.startsWith(toString())) {
+            return null;
+        }
+        oid = oid.substring(toString().length());
+        if (oid.startsWith(".")) {
+            oid = oid.substring(1);
+        }
+        ObjectIdentifierValue parent = this;
+        ObjectIdentifierValue child = this;
+        while (child != null && oid.length() > 0) {
+            int value = -1;
+            try {
+                int pos = oid.indexOf('.');
+                if (pos > 0) {
+                    value = Integer.parseInt(oid.substring(0, pos));
+                    oid = oid.substring(pos + 1);
+                } else {
+                    value = Integer.parseInt(oid);
+                    oid = "";
+                }
+            } catch (NumberFormatException ignore) {
+                oid = "";
+            }
+            parent = child;
+            child = child.getChildByValue(value);
+        }
+        return (child == null) ? parent : child;
+    }
+
+    /**
      * Adds a child component. The children will be inserted in the
      * value order. If a child with the same value has already been
      * added, the new child will be merged with the previous one (if
@@ -508,13 +654,11 @@ public class ObjectIdentifierValue extends MibValue {
                                            ObjectIdentifierValue child)
         throws MibException {
 
-        ObjectIdentifierValue  value;
-        int                    i = children.size();
-
-        // Insert child in value order, searching backwards to 
+        // Insert child in value order, searching backwards to
         // optimize the most common case (ordered insertion)
+        int i = children.size();
         while (i > 0) {
-            value = (ObjectIdentifierValue) children.get(i - 1);
+            ObjectIdentifierValue value = children.get(i - 1);
             if (value.getValue() == child.getValue()) {
                 value = value.merge(log, location, child);
                 children.set(i - 1, value);
@@ -549,14 +693,11 @@ public class ObjectIdentifierValue extends MibValue {
                              ObjectIdentifierValue parent)
         throws MibException {
 
-        ObjectIdentifierValue  child;
-        String                 msg;
-
         if (name == null) {
             name = parent.name;
         } else if (parent.name != null && !parent.name.equals(name)) {
-            msg = "OID component '" + parent.name + "' was previously " +
-                  "defined as '" + name + "'";
+            String msg = "OID component '" + parent.name + "' was previously " +
+                         "defined as '" + name + "'";
             if (log == null) {
                 throw new MibException(location, msg);
             } else {
@@ -569,11 +710,9 @@ public class ObjectIdentifierValue extends MibValue {
                                    "symbol reference already set");
         }
         for (int i = 0; i < parent.children.size(); i++) {
-            child = (ObjectIdentifierValue) parent.children.get(i);
-            if(this == child.parent) {
-              child.parent = this;
-              addChild(log, location, child);
-            }
+            ObjectIdentifierValue child = parent.children.get(i);
+            child.parent = this;
+            addChild(log, location, child);
         }
         parent.children.clear();
     }
@@ -629,10 +768,8 @@ public class ObjectIdentifierValue extends MibValue {
      * @return a string representation of this value
      */
     public String toString() {
-        StringBuffer  buffer;
-
         if (cachedNumericValue == null) {
-            buffer = new StringBuffer();
+            StringBuilder buffer = new StringBuilder();
             if (parent != null) {
                 buffer.append(parent.toString());
                 buffer.append(".");
@@ -651,8 +788,7 @@ public class ObjectIdentifierValue extends MibValue {
      * @return a detailed string representation of this value
      */
     public String toDetailString() {
-        StringBuffer  buffer = new StringBuffer();
-
+        StringBuilder buffer = new StringBuilder();
         if (parent instanceof ObjectIdentifierValue) {
             buffer.append(((ObjectIdentifierValue) parent).toDetailString());
             buffer.append(".");
@@ -673,15 +809,13 @@ public class ObjectIdentifierValue extends MibValue {
      * contain references to any parent OID value that can be found.
      *
      * @return an ASN.1 representation of this value
-     * 
+     *
      * @since 2.6
      */
     public String toAsn1String() {
-        StringBuffer           buffer = new StringBuffer();
-        ObjectIdentifierValue  ref;
-
+        StringBuilder buffer = new StringBuilder();
         if (parent instanceof ObjectIdentifierValue) {
-            ref = (ObjectIdentifierValue) parent;
+            ObjectIdentifierValue ref = (ObjectIdentifierValue) parent;
             if (ref.getSymbol() == null) {
                 buffer.append(ref.toAsn1String());
             } else {

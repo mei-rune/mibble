@@ -16,7 +16,7 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
  * USA
  *
- * Copyright (c) 2004-2006 Per Cederberg. All rights reserved.
+ * Copyright (c) 2004-2013 Per Cederberg. All rights reserved.
  */
 
 package net.percederberg.mibble.snmp;
@@ -45,8 +45,8 @@ import net.percederberg.mibble.value.ObjectIdentifierValue;
  * @see <a href="http://www.ietf.org/rfc/rfc1212.txt">RFC 1212 (RFC-1212)</a>
  * @see <a href="http://www.ietf.org/rfc/rfc2578.txt">RFC 2578 (SNMPv2-SMI)</a>
  *
- * @author   Per Cederberg, <per at percederberg dot net>
- * @version  2.8
+ * @author   Per Cederberg
+ * @version  2.10
  * @since    2.0
  */
 public class SnmpObjectType extends SnmpType {
@@ -79,7 +79,7 @@ public class SnmpObjectType extends SnmpType {
     /**
      * The list of index values or types.
      */
-    private ArrayList index;
+    private ArrayList<SnmpIndex> index;
 
     /**
      * The index augments value.
@@ -109,7 +109,7 @@ public class SnmpObjectType extends SnmpType {
                           SnmpStatus status,
                           String description,
                           String reference,
-                          ArrayList index,
+                          ArrayList<SnmpIndex> index,
                           MibValue defaultValue) {
 
         super("OBJECT-TYPE", description);
@@ -150,7 +150,7 @@ public class SnmpObjectType extends SnmpType {
         this.access = access;
         this.status = status;
         this.reference = reference;
-        this.index = new ArrayList();
+        this.index = new ArrayList<SnmpIndex>(0);
         this.augments = augments;
         this.defaultValue = defaultValue;
     }
@@ -186,7 +186,7 @@ public class SnmpObjectType extends SnmpType {
         syntax = syntax.initialize(symbol, log);
         checkType((MibValueSymbol) symbol, log, syntax);
         for (int i = 0; i < index.size(); i++) {
-            ((SnmpIndex) index.get(i)).initialize(symbol, log);
+            index.get(i).initialize(symbol, log);
         }
         if (augments != null) {
             augments = augments.initialize(log, syntax);
@@ -216,14 +216,11 @@ public class SnmpObjectType extends SnmpType {
                            MibType type)
         throws MibException {
 
-        SequenceOfType  sequence;
-        ElementType[]   elems;
-
         if (type instanceof SequenceOfType) {
-            sequence = (SequenceOfType) type;
+            SequenceOfType sequence = (SequenceOfType) type;
             checkType(symbol, log, sequence.getElementType());
         } else if (type instanceof SequenceType) {
-            elems = ((SequenceType) type).getAllElements();
+            ElementType[] elems = ((SequenceType) type).getAllElements();
             for (int i = 0; i < elems.length; i++) {
                 checkElement(symbol, log, elems[i], i + 1);
             }
@@ -251,19 +248,14 @@ public class SnmpObjectType extends SnmpType {
                               int pos)
         throws MibException {
 
-        Mib                    mib = symbol.getMib();
-        MibSymbol              elementSymbol;
-        String                 name;
-        MibType                type;
-        ObjectIdentifierValue  value;
-
-        elementSymbol = mib.getSymbol(element.getName());
-        if (elementSymbol == null) {
+        String name = String.valueOf(pos);
             if (element.getName() != null) {
                 name = pos + " '" + element.getName() + "'";
-            } else {
-                name = String.valueOf(pos);
             }
+
+        Mib mib = symbol.getMib();
+        MibSymbol elementSymbol = mib.getSymbol(element.getName());
+        if (elementSymbol == null) {
             log.addWarning(symbol.getLocation(),
                            "sequence element " + name + " is undefined " +
                            "in MIB, a default symbol will be created");
@@ -271,15 +263,15 @@ public class SnmpObjectType extends SnmpType {
             if (name == null) {
                 name = symbol.getName() + "." + pos;
             }
-            type = new SnmpObjectType(element.getType(),
+            MibType type = new SnmpObjectType(element.getType(),
                                       null,
                                       SnmpAccess.READ_ONLY,
                                       SnmpStatus.CURRENT,
                                       "AUTOMATICALLY CREATED SYMBOL",
                                       null,
-                                      new ArrayList(),
+                                              new ArrayList<SnmpIndex>(0),
                                       null);
-            value = (ObjectIdentifierValue) symbol.getValue();
+            ObjectIdentifierValue value = (ObjectIdentifierValue) symbol.getValue();
             value = new ObjectIdentifierValue(symbol.getLocation(),
                                               value,
                                               element.getName(),
@@ -291,11 +283,6 @@ public class SnmpObjectType extends SnmpType {
                                                value);
             elementSymbol.initialize(log);
         } else if (elementSymbol instanceof MibTypeSymbol) {
-            if (element.getName() != null) {
-                name = pos + " '" + element.getName() + "'";
-            } else {
-                name = String.valueOf(pos);
-            }
             throw new MibException(symbol.getLocation(),
                                    "sequence element " + name +
                                    " does not refer to a value, but " +
@@ -377,7 +364,7 @@ public class SnmpObjectType extends SnmpType {
      *
      * @since 2.6
      */
-    public ArrayList getIndex() {
+    public ArrayList<SnmpIndex> getIndex() {
         return index;
     }
 
@@ -407,8 +394,7 @@ public class SnmpObjectType extends SnmpType {
      * @return a string representation of this object
      */
     public String toString() {
-        StringBuffer  buffer = new StringBuffer();
-
+        StringBuilder buffer = new StringBuilder();
         buffer.append(super.toString());
         buffer.append(" (");
         buffer.append("\n  Syntax: ");

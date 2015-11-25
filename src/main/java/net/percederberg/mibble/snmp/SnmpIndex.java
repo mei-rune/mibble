@@ -34,7 +34,7 @@ import net.percederberg.mibble.MibValue;
  *
  * @see SnmpObjectType
  *
- * @author   Per Cederberg, <per at percederberg dot net>
+ * @author   Per Cederberg
  * @version  2.8
  * @since    2.6
  */
@@ -146,8 +146,7 @@ public class SnmpIndex {
      * @return a string representation of this object
      */
     public String toString() {
-        StringBuffer  buffer = new StringBuffer();
-
+        StringBuilder buffer = new StringBuilder();
         if (implied) {
             buffer.append("IMPLIED ");
         }

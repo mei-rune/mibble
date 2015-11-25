@@ -39,7 +39,7 @@ import net.percederberg.mibble.type.IntegerType;
  * references will have been resolved to other MIB values. Do
  * <strong>NOT</strong> use or reference this class.
  *
- * @author   Per Cederberg, <per at percederberg dot net>
+ * @author   Per Cederberg
  * @version  2.8
  * @since    2.0
  */
@@ -100,7 +100,6 @@ public class ValueReference extends MibValue {
 
         MibSymbol  sym;
         MibValue   value;
-        MibValue   old_value;
         String     message;
 
         sym = getSymbol(log);
@@ -113,7 +112,6 @@ public class ValueReference extends MibValue {
         }
         if (sym instanceof MibValueSymbol) {
             value = ((MibValueSymbol) sym).getValue();
-            old_value = value;
             if (value != null) {
                 value = value.initialize(log, type);
             }
@@ -172,11 +170,11 @@ public class ValueReference extends MibValue {
             sym = context.findSymbol(name, true);
             if (sym != null && log != null) {
                 message = "missing import for '" + name + "', using " +
-                          "definition from " + sym.getMib().getName();
+                          sym.getMib().getName();
                 log.addWarning(location, message);
             }
         }
-        return sym; 
+        return sym;
     }
 
     /**

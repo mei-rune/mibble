@@ -33,7 +33,7 @@ import net.percederberg.mibble.value.StringValue;
  * A MIB type value constraint. This class represents a single value
  * in a set of value constraints.
  *
- * @author   Per Cederberg, <per at percederberg dot net>
+ * @author   Per Cederberg
  * @version  2.8
  * @since    2.0
  */
@@ -41,7 +41,7 @@ public class ValueConstraint implements Constraint {
 
     /**
      * The constraint location. This value is reset to null once the
-     * constraint has been initialized. 
+     * constraint has been initialized.
      */
     private FileLocation location;
 
@@ -81,7 +81,7 @@ public class ValueConstraint implements Constraint {
 
         value = value.initialize(log, type);
         if (location != null && !isCompatible(type)) {
-            message = "Value constraint not compatible with this type";
+            message = "value constraint not compatible with this type";
             log.addWarning(location, message);
         }
         location = null;

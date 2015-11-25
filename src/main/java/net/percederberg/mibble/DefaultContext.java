@@ -16,7 +16,7 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
  * USA
  *
- * Copyright (c) 2004-2006 Per Cederberg. All rights reserved.
+ * Copyright (c) 2004-2013 Per Cederberg. All rights reserved.
  */
 
 package net.percederberg.mibble;
@@ -29,8 +29,8 @@ import net.percederberg.mibble.value.ObjectIdentifierValue;
 /**
  * A default MIB context.
  *
- * @author   Per Cederberg, <per at percederberg dot net>
- * @version  2.8
+ * @author   Per Cederberg
+ * @version  2.10
  * @since    2.0
  */
 class DefaultContext implements MibContext {
@@ -53,8 +53,8 @@ class DefaultContext implements MibContext {
     /**
      * The map of default symbols.
      */
-    private HashMap symbols = new HashMap();
-    private HashMap basic_symbols = new HashMap();
+    private HashMap<String,MibSymbol> symbols = new HashMap<String,MibSymbol>();
+    private HashMap<String,MibSymbol> basic_symbols = new HashMap<String,MibSymbol>();
 
     /**
      * Creates a new default context.
@@ -67,38 +67,28 @@ class DefaultContext implements MibContext {
      * Initializes this context by creating all default symbols.
      */
     private void initialize() {
-        MibSymbol              symbol;
-        ObjectIdentifierValue  oid;
+        symbols.put(CCITT, createRootOid(CCITT, 0));
+        symbols.put(ISO, createRootOid(ISO, 1));
+        symbols.put(JOINT_ISO_CCITT, createRootOid(JOINT_ISO_CCITT, 2));
+    }
 
-        // Add the ccitt symbol
-        oid = new ObjectIdentifierValue(CCITT, 0);
-        symbol = new MibValueSymbol(new FileLocation(null, -1, -1),
+    /**
+     * Create a root object identifier symbol.
+     *
+     * @param name           the symbol name
+     * @param value          the oid value
+     *
+     * @return the new object identifier symbol
+     */
+    private MibValueSymbol createRootOid(String name, int value) {
+        ObjectIdentifierValue oid = new ObjectIdentifierValue(name, value);
+        MibValueSymbol sym = new MibValueSymbol(new FileLocation(null, -1, -1),
                                     null,
-                                    CCITT,
+                                                name,
                                     new ObjectIdentifierType(),
                                     oid);
-        oid.setSymbol((MibValueSymbol) symbol);
-        symbols.put(CCITT, symbol);
-
-        // Add the iso symbol
-        oid = new ObjectIdentifierValue(ISO, 1);
-        symbol = new MibValueSymbol(new FileLocation(null, -1, -1),
-                                    null,
-                                    ISO,
-                                    new ObjectIdentifierType(),
-                                    oid);
-        oid.setSymbol((MibValueSymbol) symbol);
-        symbols.put(ISO, symbol);
-
-        // Add the joint-iso-ccitt symbol
-        oid = new ObjectIdentifierValue(JOINT_ISO_CCITT, 2);
-        symbol = new MibValueSymbol(new FileLocation(null, -1, -1),
-                                    null,
-                                    JOINT_ISO_CCITT,
-                                    new ObjectIdentifierType(),
-                                    oid);
-        oid.setSymbol((MibValueSymbol) symbol);
-        symbols.put(JOINT_ISO_CCITT, symbol);
+        oid.setSymbol(sym);
+        return sym;
     }
 
     /**
@@ -120,16 +110,43 @@ class DefaultContext implements MibContext {
      * @since 2.4
      */
     public MibSymbol findSymbol(String name, boolean expanded) {
-        MibSymbol symbol = (MibSymbol) symbols.get(name);
+        MibSymbol symbol = symbols.get(name);
         if(null != symbol) {
             return symbol;
         }
 
-        return (MibSymbol) basic_symbols.get(name);
+        return basic_symbols.get(name);
     }
 
     public HashMap getSymbolsInBasicModuule() {
         return basic_symbols;
+    }
+
+    /**
+     * Searches the OID tree for the best matching value. The
+     * returned OID value will be the longest matching OID value, but
+     * doesn't have to be an exact match. The search requires the
+     * full numeric OID value (from the root).
+     *
+     * @param oid            the numeric OID string to search for
+     *
+     * @return the best matching OID value, or
+     *         null if no partial match was found
+     *
+     * @since 2.10
+     */
+    public ObjectIdentifierValue findOid(String oid) {
+        MibValue value = ((MibValueSymbol) symbols.get(ISO)).getValue();
+        ObjectIdentifierValue match = ((ObjectIdentifierValue) value).find(oid);
+        if (match == null) {
+            value = ((MibValueSymbol) symbols.get(CCITT)).getValue();
+            match = ((ObjectIdentifierValue) value).find(oid);
+    }
+        if (match == null) {
+            value = ((MibValueSymbol) symbols.get(JOINT_ISO_CCITT)).getValue();
+            match = ((ObjectIdentifierValue) value).find(oid);
+        }
+        return match;
     }
 
     /**
