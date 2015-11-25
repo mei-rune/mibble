@@ -2,7 +2,8 @@ package net.percederberg.mibble;
 
 import net.percederberg.mibble.snmp.SnmpObjectType;
 import net.percederberg.mibble.snmp.SnmpTextualConvention;
-import net.percederberg.mibble.type.ElementType;
+import net.percederberg.mibble.type.ObjectIdentifierType;
+import net.percederberg.mibble.type.SequenceOfType;
 import net.percederberg.mibble.type.SequenceType;
 
 import java.io.*;
@@ -134,11 +135,11 @@ public class Mib2Go {
 //          System.out.println("load "+file.toString()+" failed:");
 //          e.getlogPrint().printTo(System.out);
 
-        if(log.errorCount() > 0) {
-            StringWriter sw = new StringWriter();
-            log.printTo(new PrintWriter(sw));
-            logPrint("load mib failed:\r\n%s", sw);
-        }
+//        if(log.errorCount() > 0) {
+//            StringWriter sw = new StringWriter();
+//            log.printTo(new PrintWriter(sw));
+//            logPrint("load mib failed:\r\n%s", sw);
+//        }
         //}
 
         Mib[] mibs = loader.getAllMibs();
@@ -150,8 +151,8 @@ public class Mib2Go {
             Mib mib = loader.getMib(module);
             if (null != mib) {
                 Generator generator = new GeneratorImpl(managedObject, mib.getName(),
-                        new FileWriter(new File(cd, "meta\\mo_" + mib.getName() + ".xml")),
-                        new FileWriter(new File(cd, "sampling\\metrics\\metric_" + mib.getName() + ".go")));
+                        new FileWriter(new File(cd, "meta\\metrics\\mib_" + mib.getName() + "-gen.xml")),
+                        new FileWriter(new File(cd, "sampling\\metrics\\metric_mib_" + mib.getName() + "-gen.go")));
                 generateMib(mib, tables, generator);
                 generator.Close();
                 return;
@@ -161,13 +162,22 @@ public class Mib2Go {
         if(null != mibs) {
             for (Mib mib1 : mibs) {
                 Generator generator = new GeneratorImpl(managedObject, mib1.getName(),
-                        new FileWriter(new File(cd, "meta\\mo_" + mib1.getName() + ".xml")),
-                        new FileWriter(new File(cd, "sampling\\metrics\\metric_" + mib1.getName() + ".go")));
+                        new FileWriter(new File(cd, "meta\\metrics\\mib_" + mib1.getName() + "-gen.xml")),
+                        new FileWriter(new File(cd, "sampling\\metrics\\metric_mib_" + mib1.getName() + "-gen.go")));
                 generateMib(mib1, tables, generator);
                 generator.Close();
             }
             return;
         }
+
+//        for(MibLoaderLog.LogEntry entry : log.entriesByFile(new File("D:\\mibs\\StandardMibs\\rfc4382 MPLS__BGP Layer 3 Virtual Private Network (VPN).mib"))) {
+//            logPrint(entry.toString());
+//        }
+
+        for(MibLoaderLog.LogEntry entry : log.errorEntries()) {
+           entry.toString(1, System.err);
+        }
+
         System.out.println("‘"+module+"’ is not found.");
     }
 
@@ -182,8 +192,32 @@ public class Mib2Go {
             }
             if(hasSymbol(tables, symbol)) {
                 generateTable(symbol, generator);
+                generateGroup(symbol, generator);
             }
         }
+    }
+
+    private static void generateGroup(MibSymbol symbol, Generator generator) throws IOException {
+        if(!(symbol instanceof MibValueSymbol)) {
+            return;
+        }
+        MibValueSymbol valueSymbol = (MibValueSymbol) symbol;
+        if(!(valueSymbol.getType() instanceof SnmpObjectType)) {
+            return;
+        }
+        SnmpObjectType objectType = (SnmpObjectType)valueSymbol.getType();
+        if((objectType.getSyntax() instanceof  SequenceType)) {
+            return;
+        }
+        if((objectType.getSyntax() instanceof SequenceOfType)) {
+            return;
+        }
+
+        MibValueSymbol parent = valueSymbol.getParent();
+        if(!(parent.getType() instanceof ObjectIdentifierType)) {
+            return;
+        }
+        generator.GenerateGoObject(valueSymbol, valueSymbol.getChildren());
     }
 
     private static void generateTable(MibSymbol symbol, Generator generator) throws IOException {
@@ -200,9 +234,8 @@ public class Mib2Go {
             return;
         }
         //MibValueSymbol parent = valueSymbol.getParent();
-        SequenceType sequenceType = ((SequenceType)objectType.getSyntax());
-        generator.GenerateMeta(valueSymbol, valueSymbol.getChildren());
-        generator.GenerateGo(valueSymbol, valueSymbol.getChildren());
+        //SequenceType sequenceType = ((SequenceType)objectType.getSyntax());
+        generator.GenerateGoArray(valueSymbol, valueSymbol.getChildren());
     }
     private static boolean hasSymbol(ArrayList<String> tables, MibSymbol symbol) {
         if(tables.isEmpty()) {
@@ -225,7 +258,7 @@ public class Mib2Go {
         if(null == files || 0 == files.length) {
             return;
         }
-
+        File excepted = new File("D:\\mibs\\StandardMibs\\rfc4382 MPLS__BGP Layer 3 Virtual Private Network (VPN).mib");
         for(File file : files) {
             if(file.isDirectory()) {
                 loadDir(loader, file, log);
@@ -236,7 +269,8 @@ public class Mib2Go {
                     if (2 <= ss.length) {
                         ext = ss[ss.length-1];
                     }
-                    if((null != ext && !ext.isEmpty())||
+                    if(null == ext ||
+                            ext.isEmpty()||
                             "my".equals(ext)||
                             "txt".equals(ext)||
                             "mib".equals(ext)||
@@ -244,8 +278,6 @@ public class Mib2Go {
                             "smi".equals(ext)||
                             "smi".equals(ext)) {
                         loader.load(file, log);
-                        log.printTo(System.out);
-                        log.clear();
                     }
                 } catch (IOException e){
                     logPrint(String.format("load '%s' failed, ", file), e);

@@ -118,7 +118,7 @@ class DefaultContext implements MibContext {
         return basic_symbols.get(name);
     }
 
-    public HashMap getSymbolsInBasicModuule() {
+    public HashMap<String, MibSymbol> getSymbolsInBasicModuule() {
         return basic_symbols;
     }
 

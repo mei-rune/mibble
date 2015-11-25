@@ -9,14 +9,16 @@ import net.percederberg.mibble.value.ObjectIdentifierValue;
 
 import java.io.IOException;
 import java.io.Writer;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 
 public interface Generator {
-    void GenerateMeta(MibValueSymbol symbol, MibValueSymbol[] elementTypes) throws IOException;
-    void GenerateGo(MibValueSymbol symbol, MibValueSymbol[]  elementTypes) throws IOException;
     void GenerateGoType(MibTypeSymbol mibSymbol, SnmpTextualConvention symbol) throws IOException;
+    void GenerateGoArray(MibValueSymbol valueSymbol, MibValueSymbol[] children) throws IOException;
+    void GenerateGoObject(MibValueSymbol valueSymbol, MibValueSymbol[] children) throws IOException;
     void Close() throws IOException;
 }
 
@@ -26,6 +28,7 @@ class GeneratorImpl implements Generator {
     Map<String,String> tables = new HashMap<>();
     String managedObject;
     String module;
+    Map<String, MibValueSymbol> groups = new HashMap<>();
 
     public GeneratorImpl(String managedObject, String module, Writer meta, Writer src) throws IOException {
         this.managedObject = managedObject;
@@ -33,17 +36,65 @@ class GeneratorImpl implements Generator {
         this.metaWriter = meta;
         this.srcWriter = src;
         this.srcWriter.append("package metrics\r\n\r\n");
+
+        this.metaWriter.append("<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\"?>\r\n")
+                .append("<classDefinitions lastModified=\"")
+                .append(new SimpleDateFormat("yyyy-MM-dd'T'hh:mm:ss").format(new Date()))
+                .append("\"")
+                .append(" class=\"").append(managedObject).append("\"\r\n")
+                .append("   xmlns=\"http://schemas.hengwei.com.cn/tpt/1/metricDefinitions\"")
+                .append("   xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"")
+                .append("   xsi:schemaLocation=\"http://schemas.hengwei.com.cn/tpt/1/metricDefinitions metricDefinitions.xsd\">\r\n");
     }
 
-    @Override
-    public void GenerateMeta(MibValueSymbol symbol, MibValueSymbol[] elementTypes) throws IOException {
-        metaWriter.append(String.format("  <metric name=\"%s\" is_array=\"true\">\n", symbol.getParent().getName()));
+    public void GenerateMetaTable(MibValueSymbol symbol, MibValueSymbol[] elementTypes) throws IOException {
+        metaWriter.append(String.format("  <metric name=\"%s\" is_array=\"true\">\r\n", symbol.getParent().getName()));
         String classComment = ((SnmpType)symbol.getParent().getType()).getDescription();
         if(null != classComment && !classComment.trim().isEmpty()) {
-            metaWriter.append(String.format("    <label lang=\"zh-cn\">%s</label>\n", classComment));
+            metaWriter.append(String.format("    <description lang=\"zh-cn\">%s</description>\r\n", classComment));
         }
         metaWriter.append(String.format("    <class name=\"%s\">\r\n", symbol.getParent().getName()));
-        for(MibValueSymbol el : elementTypes) {
+        metaWriter.append("      <property name=\"key\" type=\"string\">\r\n")
+                .append("        <label lang=\"zh-cn\">索引</label>\r\n")
+                .append("      </property>\r\n");
+
+        generateChildrenMeta(elementTypes);
+        metaWriter.append("    </class>\r\n");
+
+        MibValue arguments = ((SnmpObjectType) symbol.getType()).getAugments();
+        if(null != arguments ) {
+            metaWriter.append("    <arguments>\r\n" +
+                    "      <argument name=\"key\" type=\"string\">\r\n" +
+                    "        <label lang=\"zh-cn\">索引</label>\r\n" +
+                    "        <required/>\r\n" +
+                    "      </argument>\r\n" +
+                    "    </arguments>\r\n");
+        }
+        metaWriter.append("  </metric>\r\n");
+        metaWriter.flush();
+    }
+
+    private void GenerateMetaObject(MibValueSymbol symbol, MibValueSymbol[] children) throws IOException {
+        children = toLeafOnly(children);
+        if(0 == children.length) {
+            return;
+        }
+
+
+        metaWriter.append(String.format("  <metric name=\"%s\">\r\n", symbol.getName()));
+//        String classComment = ((SnmpType)symbol.getType()).getDescription();
+//        if(null != classComment && !classComment.trim().isEmpty()) {
+//            metaWriter.append(String.format("    <description lang=\"zh-cn\">%s</description>\n", classComment));
+//        }
+        metaWriter.append(String.format("    <class name=\"%s\">\r\n", symbol.getName()));
+        generateChildrenMeta(children);
+        metaWriter.append("    </class>\r\n");
+        metaWriter.append("  </metric>\r\n");
+        metaWriter.flush();
+    }
+
+    private void generateChildrenMeta(MibValueSymbol[] children) throws IOException {
+        for(MibValueSymbol el : children) {
             String comment = ((SnmpType)el.getType()).getDescription();
             if(null != comment && comment.trim().isEmpty()) {
                 comment = null;
@@ -61,7 +112,7 @@ class GeneratorImpl implements Generator {
                     metaWriter.append(String.format("        %s\n", metaType.GetXmlComment()));
                 }
                 if(null != comment && !comment.trim().isEmpty()) {
-                    metaWriter.append(String.format("        <label lang=\"zh-cn\">%s</label>\n", comment));
+                    metaWriter.append(String.format("        <description lang=\"zh-cn\">%s</description>\n", comment));
                 }
                 if(0 != values.length) {
                     metaWriter.append("          <enumeration>\r\n");
@@ -73,9 +124,6 @@ class GeneratorImpl implements Generator {
                 metaWriter.append("      </property>\r\n");
             }
         }
-        metaWriter.append("    </class>\r\n");
-        metaWriter.append("  </metric>\n");
-        metaWriter.flush();
     }
 
     private StringValue[] getEnum(MibType type) {
@@ -98,61 +146,10 @@ class GeneratorImpl implements Generator {
         return new StringValue[0];
     }
 
-    private TypeValue toMetaType(MibType type) {
-        if(type instanceof SnmpObjectType) {
-            SnmpObjectType objectType = (SnmpObjectType) type;
-            if( objectType.getSyntax() instanceof IntegerType) {
-                IntegerType integerType = (IntegerType) objectType.getSyntax();
-                if(null != integerType) {
-                    MibTypeSymbol symbol = integerType.getReferenceSymbol();
-                    if(null != symbol) {
-                        String comment = symbol.getName();
-                        do {
-                            if ("Counter".equalsIgnoreCase(symbol.getName())) {
-                                return new TypeValue("biginteger", comment);
-                            }
-                            if ("Unsigned32".equalsIgnoreCase(symbol.getName())) {
-                                return new TypeValue("biginteger", comment);
-                            }
-                            if ("Counter32".equalsIgnoreCase(symbol.getName())) {
-                                return new TypeValue("biginteger", comment);
-                            }
-                            if ("Counter64".equalsIgnoreCase(symbol.getName())) {
-                                return new TypeValue("biginteger", comment);
-                            }
-                            if ("GAUGE32".equalsIgnoreCase(symbol.getName())) {
-                                return new TypeValue("biginteger", comment);
-                            }
-                            if(symbol.getType() instanceof SnmpTextualConvention) {
-                                symbol = ((SnmpTextualConvention) symbol.getType()).getSyntax().getReferenceSymbol();
-                            } else {
-                                break;
-                            }
-                        } while (null != symbol);
-                        return new TypeValue("integer", comment);
-                    }
-                }
-                return new TypeValue("integer", null);
-            } else if( objectType.getSyntax() instanceof StringType) {
-                return new TypeValue("string", null);
-            } else if( objectType.getSyntax() instanceof BitSetType) {
-                return new TypeValue("string", null);
-            } else if( objectType.getSyntax() instanceof ObjectIdentifierType) {
-                return new TypeValue("string", null);
-            } else if( objectType.getSyntax() instanceof RealType) {
-                return new TypeValue("decimal", null);
-            } else if( objectType.getSyntax() instanceof BooleanType) {
-                return new TypeValue("boolean", null);
-            }
-
-        }
-        throw new RuntimeException(type.toString() + "is unsupported.");
-    }
-
-    @Override
-    public void GenerateGo(MibValueSymbol symbol, MibValueSymbol[] elementTypes) throws IOException {
-        srcWriter.append(String.format("type %s struct {\r\n  snmpBase\r\n}\r\n\n", symbol.getName()));
-        srcWriter.append(String.format("func (self *%s) Call(params sampling.MContext) sampling.Result {\r\n", symbol.getName()));
+    public void GenerateGoTable(MibValueSymbol symbol, MibValueSymbol[] elementTypes) throws IOException {
+        String name = symbol.getParent().getName();
+        srcWriter.append(String.format("type %s struct {\r\n  snmpBase\r\n}\r\n\n", name));
+        srcWriter.append(String.format("func (self *%s) Call(params sampling.MContext) sampling.Result {\r\n", name));
 
         MibValue arguments = ((SnmpObjectType) symbol.getType()).getAugments();
         if(null != arguments ) {
@@ -164,11 +161,15 @@ class GeneratorImpl implements Generator {
         srcWriter.append("}\r\n\r\n");
         srcWriter.flush();
 
-        tables.put(symbol.getName(), symbol.getName());
+        tables.put(name, name);
     }
 
     private void generateReadByArguments(MibValueSymbol symbol, MibValueSymbol[] elementTypes, ObjectIdentifierValue args) throws IOException {
-        srcWriter.append("  oids = []string{");
+        srcWriter.append("  key := params.GetStringWithDefault(\"key\", \"\")\r\n")
+            .append("  if \"\" == key {\r\n")
+            .append("    return self.Return(nil, sampling.BadRequest(\"'key' is missing.\"))\r\n")
+            .append("  }\r\n\r\n")
+            .append("  oids := []string{");
         for(MibValueSymbol el : elementTypes) {
             if (((SnmpObjectType)el.getType()).getAccess().canRead()) {
                 srcWriter.append("    \"");
@@ -181,7 +182,7 @@ class GeneratorImpl implements Generator {
         srcWriter.append("  if nil != e {\r\n");
         srcWriter.append("    return self.Return(nil, e)\r\n");
         srcWriter.append("  }\r\n");
-        srcWriter.append("  return self.OK(map[string]interface{}{\"key\":                   key,\r\n");
+
 
         int i = 0;
         for (MibValueSymbol el : elementTypes) {
@@ -190,8 +191,29 @@ class GeneratorImpl implements Generator {
                 continue;
             }
 
-            srcWriter.append(String.format("    \"%s\":         %s,\r\n",
-                    el.getName(), toGoMethod(el, String.format("oids[%d]", i))));
+            if(isPreRead(el)) {
+                srcWriter.append(String.format("  %s := %s\r\n",
+                        el.getName(), toGoMethod(el, null,   "values", String.format("oids[%d]", i))));
+            }
+            i ++;
+        }
+
+        srcWriter.append("  return self.OK(map[string]interface{}{\"key\":                   key,\r\n");
+
+        i = 0;
+        MibValueSymbol prev_el = null;
+        for (MibValueSymbol el : elementTypes) {
+            if (!((SnmpObjectType) el.getType()).getAccess().canRead()) {
+                srcWriter.append(String.format("    //%s can't read.\r\n", el.getName()));
+                continue;
+            }
+
+            if(isPreRead(el)) {
+                srcWriter.append(String.format("    \"%s\":         %s,\r\n",el.getName(), el.getName()));
+            } else {
+                srcWriter.append(String.format("    \"%s\":         %s,\r\n",
+                        el.getName(), toGoMethod(el, prev_el, "values", String.format("oids[%d]", i))));
+            }
             i ++;
         }
         srcWriter.append("  })\r\n");
@@ -221,13 +243,13 @@ class GeneratorImpl implements Generator {
                 indexSymbols.add(((ObjectIdentifierValue) index.getValue()).getSymbol());
             }
             if (indexes.size() == 1) {
-                srcWriter.append("      ").append(indexSymbols.get(0).getName()).append(" = key\r\n");
+                srcWriter.append("      ").append(indexSymbols.get(0).getName()).append(" := key\r\n");
             } else {
                 boolean is_first = true;
                 for (MibValueSymbol indexSym : indexSymbols) {
                     if(is_first) {
                         srcWriter.append("      ").append(indexSym.getName()).
-                                append(", next, e := ").append(toGoReadMethod(indexSym, "key")).append("\r\n");
+                                append(", next, e := ").append(toGoReadMethod(indexSym, "toOidFromString(key)")).append("\r\n");
                         is_first = false;
                     } else {
                         srcWriter.append("      ").append(indexSym.getName()).
@@ -235,16 +257,25 @@ class GeneratorImpl implements Generator {
                     }
 
                     srcWriter.append("      if nil != e {\r\n")
-                            .append("        return self.Return(nil, errors.New(\"failed to read ")
+                            .append("        return nil, errors.New(\"failed to read ")
                             .append(indexSym.getName())
-                            .append(", key '\" + key + \"' is invalid.\"))\r\n")
+                            .append(", key '\" + key + \"' is invalid.\")\r\n")
                             .append("      }\r\n");
                 }
             }
         }
+
+        for (MibValueSymbol el : elementTypes) {
+            if (!((SnmpObjectType) el.getType()).getAccess().canRead()) {
+                continue;
+            }
+            if(isPreRead(el)) {
+                srcWriter.append(String.format("      %s := %s\r\n", el.getName(), toGoMethod(el, null)));
+            }
+        }
         srcWriter.append("      return map[string]interface{}{\"key\":                   key,\r\n");
 
-
+        MibValueSymbol prev_el = null;
         for (MibValueSymbol el : elementTypes) {
             if (!((SnmpObjectType) el.getType()).getAccess().canRead()) {
                 boolean found = false;
@@ -263,7 +294,13 @@ class GeneratorImpl implements Generator {
                 srcWriter.append(String.format("        \"%s\":         %s,\r\n", el.getName(), el.getName()));
                 continue;
             }
-            srcWriter.append(String.format("        \"%s\":         %s,\r\n", el.getName(), toGoMethod(el)));
+
+            if(isPreRead(el)) {
+                srcWriter.append(String.format("        \"%s\":         %s,\r\n", el.getName(), el.getName()));
+                prev_el = el;
+            } else {
+                srcWriter.append(String.format("        \"%s\":         %s,\r\n", el.getName(), toGoMethod(el, prev_el)));
+            }
         }
         srcWriter.append("    }, nil\r\n");
         srcWriter.append("  })\r\n");
@@ -279,11 +316,26 @@ class GeneratorImpl implements Generator {
         }
         srcWriter.append("func SnmpGet").append(symbol.getName());
         GoStringValue value = toGoType(type);
-        srcWriter.append(String.format("(params sampling.MContext, values map[string]interface{}, idx string) (%s, error) {\r\n", value.name));
-        srcWriter.append(String.format("  return SnmpGet%s(params, values, idx, %s)\r\n", value.methodName, value.value));
+        srcWriter.append(String.format("(params sampling.MContext, values map[string]interface{}, idx string) %s {\r\n", value.name));
+        srcWriter.append(String.format("  return SnmpGet%sWith(params, values, idx, %s)\r\n", value.methodName, value.value));
+        srcWriter.append("}\r\n");
+        srcWriter.append("func SnmpRead").append(symbol.getName());
+        srcWriter.append(String.format("FromOid(params sampling.MContext, oid []int) (%s, []int, error) {\r\n", value.name));
+        srcWriter.append(String.format("  return SnmpRead%sFromOid(params, oid)\r\n", value.methodName));
         srcWriter.append("}\r\n");
         srcWriter.append("\r\n");
         srcWriter.append("\r\n");
+    }
+
+    @Override
+    public void GenerateGoArray(MibValueSymbol valueSymbol, MibValueSymbol[] children) throws IOException {
+        GenerateMetaTable(valueSymbol, children);
+        GenerateGoTable(valueSymbol, children);
+    }
+
+    @Override
+    public void GenerateGoObject(MibValueSymbol valueSymbol, MibValueSymbol[] children) throws IOException {
+        groups.put(valueSymbol.getParent().getName(), valueSymbol.getParent());
     }
 
     private GoStringValue toGoType(SnmpTextualConvention type) {
@@ -299,44 +351,177 @@ class GeneratorImpl implements Generator {
         throw new RuntimeException(type.toString() + "is unsupported.");
     }
 
-    private String toGoMethod(MibValueSymbol el) {
-        return toGoMethod(el, "\"" + Integer.toString(((ObjectIdentifierValue) el.getValue()).getValue())+ "\"");
+    private String toGoMethod(MibValueSymbol el, MibValueSymbol prev_el) {
+        return toGoMethod(el, prev_el, "old_row", "\"" + Integer.toString(((ObjectIdentifierValue) el.getValue()).getValue())+ "\"");
+    }
+
+    private TypeValue toMetaType(MibType type) {
+        if(type instanceof SnmpObjectType) {
+            SnmpObjectType objectType = (SnmpObjectType) type;
+            MibTypeSymbol symbol = objectType.getReferenceSymbol();
+            String comment = null;
+            if(null != symbol) {
+                comment = symbol.getName();
+                do {
+                    if ("Counter".equalsIgnoreCase(symbol.getName())) {
+                        return new TypeValue("biginteger", comment);
+                    }
+                    if ("Unsigned32".equalsIgnoreCase(symbol.getName())) {
+                        return new TypeValue("biginteger", comment);
+                    }
+                    if ("Counter32".equalsIgnoreCase(symbol.getName())) {
+                        return new TypeValue("biginteger", comment);
+                    }
+                    if ("Counter64".equalsIgnoreCase(symbol.getName())) {
+                        return new TypeValue("biginteger", comment);
+                    }
+                    if ("GAUGE32".equalsIgnoreCase(symbol.getName())) {
+                        return new TypeValue("biginteger", comment);
+                    }
+                    if ("TimeTicks".equalsIgnoreCase(symbol.getName())) {
+                        return new TypeValue("duration", comment);
+                    }
+                    if ("TimeStamp".equalsIgnoreCase(symbol.getName())) {
+                        return new TypeValue("duration", comment);
+                    }
+                    if ("TimeInterval".equalsIgnoreCase(symbol.getName())) {
+                        return new TypeValue("duration", comment);
+                    }
+                    if ("MacAddress".equalsIgnoreCase(symbol.getName())) {
+                        return new TypeValue("ipAddress", comment);
+                    }
+                    if ("PhysAddress".equalsIgnoreCase(symbol.getName())) {
+                        return new TypeValue("physicalAddress", comment);
+                    }
+                    if ("DisplayString".equalsIgnoreCase(symbol.getName())) {
+                        return new TypeValue("string", comment);
+                    }
+                    if ("TimeInterval".equalsIgnoreCase(symbol.getName())) {
+                        return new TypeValue("datetime", comment);
+                    }
+                    if(symbol.getType() instanceof SnmpTextualConvention) {
+                        symbol = ((SnmpTextualConvention) symbol.getType()).getSyntax().getReferenceSymbol();
+                    } else {
+                        break;
+                    }
+                } while (null != symbol);
+            }
+
+            if( objectType.getSyntax() instanceof IntegerType) {
+                return new TypeValue("integer", comment);
+            } else if( objectType.getSyntax() instanceof StringType) {
+                return new TypeValue("string", comment);
+            } else if( objectType.getSyntax() instanceof BitSetType) {
+                return new TypeValue("string", comment);
+            } else if( objectType.getSyntax() instanceof ObjectIdentifierType) {
+                return new TypeValue("string", comment);
+            } else if( objectType.getSyntax() instanceof RealType) {
+                return new TypeValue("decimal", comment);
+            } else if( objectType.getSyntax() instanceof BooleanType) {
+                return new TypeValue("boolean", comment);
+            }
+        }
+        throw new RuntimeException(type.toString() + "is unsupported.");
+    }
+
+    private boolean isPreRead(MibValueSymbol el) {
+        if(el.getType() instanceof SnmpObjectType) {
+            SnmpObjectType objectType = (SnmpObjectType) el.getType();
+            MibTypeSymbol symbol = objectType.getSyntax().getReferenceSymbol();
+            if (null != symbol) {
+
+                if ("InetAddressType".equalsIgnoreCase(symbol.getName())) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     @SuppressWarnings("Duplicates")
-    private String toGoMethod(MibValueSymbol el, String oid) {
+    private String toGoMethod(MibValueSymbol el, MibValueSymbol prev_el, String varName, String oid) {
         if(el.getType() instanceof SnmpObjectType) {
             SnmpObjectType objectType = (SnmpObjectType) el.getType();
-            if( objectType.getSyntax() instanceof IntegerType) {
-                MibTypeSymbol symbol = objectType.getSyntax().getReferenceSymbol();
-                if(null != symbol) {
-                    if ("Counter".equalsIgnoreCase(symbol.getName())) {
-                        return String.format("SnmpGetCounter32With(params, old_row, %s, 0)", oid);
-                    }
-                    if ("Unsigned32".equalsIgnoreCase(symbol.getName())) {
-                        return String.format("SnmpGetUnsigned32With(params, old_row, %s, 0)", oid);
-                    }
-                    if ("Counter32".equalsIgnoreCase(symbol.getName())) {
-                        return String.format("SnmpGetCounter32With(params, old_row, %s, 0)", oid);
-                    }
-                    if ("Counter64".equalsIgnoreCase(symbol.getName())) {
-                        return String.format("SnmpGetCounter64With(params, old_row, %s, 0)", oid);
-                    }
-                    if ("GAUGE32".equalsIgnoreCase(symbol.getName())) {
-                        return String.format("SnmpGetGauge32With(params, old_row, %s, 0)", oid);
-                    }
-                    if ("GAUGE".equalsIgnoreCase(symbol.getName())) {
-                        return String.format("SnmpGetGauge32With(params, old_row, %s, 0)", oid);
-                    }
-                    return String.format("SnmpGet%s(params, old_row, %s)", symbol.getName(), oid);
+
+            MibTypeSymbol symbol = objectType.getSyntax().getReferenceSymbol();
+            if(null != symbol) {
+                if ("Counter".equalsIgnoreCase(symbol.getName())) {
+                    return String.format("SnmpGetCounter32With(params, %s, %s, 0)", varName, oid);
                 }
-                return String.format("SnmpGetIntWith(params, old_row, %s, 0)", oid);
+                if ("Unsigned32".equalsIgnoreCase(symbol.getName())) {
+                    return String.format("SnmpGetUnsigned32With(params, %s, %s, 0)", varName, oid);
+                }
+                if ("Counter32".equalsIgnoreCase(symbol.getName())) {
+                    return String.format("SnmpGetCounter32With(params, %s, %s, 0)", varName, oid);
+                }
+                if ("Counter64".equalsIgnoreCase(symbol.getName())) {
+                    return String.format("SnmpGetCounter64With(params, %s, %s, 0)", varName, oid);
+                }
+                if ("GAUGE32".equalsIgnoreCase(symbol.getName())) {
+                    return String.format("SnmpGetGauge32With(params, %s, %s, 0)", varName, oid);
+                }
+                if ("GAUGE".equalsIgnoreCase(symbol.getName())) {
+                    return String.format("SnmpGetGauge32With(params, %s, %s, 0)",varName,  oid);
+                }
+                if ("Integer32".equalsIgnoreCase(symbol.getName())) {
+                    return String.format("SnmpGetInteger32With(params, %s, %s, 0)",varName,  oid);
+                }
+                if ("StorageType".equalsIgnoreCase(symbol.getName())) {
+                    return String.format("SnmpGetStorageTypeWith(params, %s, %s, 0)", varName, oid);
+                }
+                if ("TimeStamp".equalsIgnoreCase(symbol.getName())) {
+                    return String.format("SnmpGetTimeStampWith(params, %s, %s, 0)", varName, oid);
+                }
+                if ("TimeTicks".equalsIgnoreCase(symbol.getName())) {
+                    return String.format("SnmpGetTimeTicksWith(params, %s, %s, 0)", varName, oid);
+                }
+                if ("TimeInterval".equalsIgnoreCase(symbol.getName())) {
+                    return String.format("SnmpGetTimeIntervalWith(params, %s, %s, 0)", varName, oid);
+                }
+                if ("DateAndTime".equalsIgnoreCase(symbol.getName())) {
+                    return String.format("SnmpGetDateAndTimeWith(params, %s, %s, 0)", varName, oid);
+                }
+                if ("TruthValue".equalsIgnoreCase(symbol.getName())) {
+                    return String.format("SnmpGetTruthValueWith(params, %s, %s, 0)", varName, oid);
+                }
+                if ("TestAndIncr".equalsIgnoreCase(symbol.getName())) {
+                    return String.format("SnmpGetTestAndIncrWith(params, %s, %s, 0)", varName, oid);
+                }
+                if ("MacAddress".equalsIgnoreCase(symbol.getName())) {
+                    return String.format("SnmpGetMacAddressWith(params, %s, %s, \"\")", varName, oid);
+                }
+                if ("PhysAddress".equalsIgnoreCase(symbol.getName())) {
+                    return String.format("SnmpGetPhysAddressWith(params, %s, %s, \"\")", varName, oid);
+                }
+                if ("SnmpAdminString".equalsIgnoreCase(symbol.getName())) {
+                    return String.format("SnmpGetSnmpAdminStringWith(params, %s, %s, \"\")", varName, oid);
+                }
+                if ("DisplayString".equalsIgnoreCase(symbol.getName())) {
+                    return String.format("SnmpGetDisplayStringWith(params, %s, %s, \"\")", varName, oid);
+                }
+                if ("AutonomousType".equalsIgnoreCase(symbol.getName())) {
+                    return String.format("SnmpGetAutonomousTypeWith(params, %s, %s)", varName, oid);
+                }
+                if ("InstancePointer".equalsIgnoreCase(symbol.getName())) {
+                    return String.format("SnmpGetInstancePointerWith(params, %s, %s)", varName, oid);
+                }
+                if ("RowPointer".equalsIgnoreCase(symbol.getName())) {
+                    return String.format("SnmpGetRowPointerWith(params, %s, %s)", varName, oid);
+                }
+                if ("InetAddress".equalsIgnoreCase(symbol.getName())) {
+                    return String.format("SnmpGetInetAddressWithType(params, %s, %s, %s)", varName, oid, prev_el.getName());
+                }
+                return String.format("SnmpGet%s(params, %s, %s)", symbol.getName(), varName, oid);
+            }
+
+            if( objectType.getSyntax() instanceof IntegerType) {
+                return String.format("SnmpGetIntWith(params, %s, %s, 0)", varName, oid);
             } else if( objectType.getSyntax() instanceof StringType) {
-                    return String.format("SnmpGetStringWith(params, old_row, %s, \"\")", oid);
+                return String.format("SnmpGetStringWith(params, %s, %s, \"\")", varName, oid);
             } else if( objectType.getSyntax() instanceof BitSetType) {
-                    return String.format("SnmpGetStringWith(params, old_row, %s, \"\")", oid);
+                return String.format("SnmpGetStringWith(params, %s, %s, \"\")", varName, oid);
             } else if( objectType.getSyntax() instanceof ObjectIdentifierType) {
-                    return String.format("SnmpGetOidWith(params, old_row, %s, \"\")", oid);
+                return String.format("SnmpGetOidWith(params, %s, %s, \"\")", varName, oid);
             }
         }
         throw new RuntimeException(el.getType().toString() + "is unsupported.");
@@ -347,36 +532,37 @@ class GeneratorImpl implements Generator {
     private String toGoReadMethod(MibValueSymbol el, String varName) {
         if(el.getType() instanceof SnmpObjectType) {
             SnmpObjectType objectType = (SnmpObjectType) el.getType();
-            if( objectType.getSyntax() instanceof IntegerType) {
-                MibTypeSymbol symbol = objectType.getSyntax().getReferenceSymbol();
-                if(null != symbol) {
-                    if ("Counter".equalsIgnoreCase(symbol.getName())) {
-                        return String.format("SnmpReadtCounter32FromOid(params, old_row, %s)", varName);
-                    }
-                    if ("Unsigned32".equalsIgnoreCase(symbol.getName())) {
-                        return String.format("SnmpReadUnsigned32FromOid(params, old_row, %s)", varName);
-                    }
-                    if ("Counter32".equalsIgnoreCase(symbol.getName())) {
-                        return String.format("SnmpReadCounter32FromOid(params, old_row, %s)", varName);
-                    }
-                    if ("Counter64".equalsIgnoreCase(symbol.getName())) {
-                        return String.format("SnmpReadCounter64FromOid(params, old_row, %s)", varName);
-                    }
-                    if ("GAUGE32".equalsIgnoreCase(symbol.getName())) {
-                        return String.format("SnmpReadGauge32FromOid(params, old_row, %s)", varName);
-                    }
-                    if ("GAUGE".equalsIgnoreCase(symbol.getName())) {
-                        return String.format("SnmpReadGauge32FromOid(params, old_row, %s)", varName);
-                    }
-                    return String.format("SnmpRead%sFromOid(params, old_row, %s)", symbol.getName(), varName);
+            MibTypeSymbol symbol = objectType.getSyntax().getReferenceSymbol();
+            if(null != symbol) {
+                if ("Counter".equalsIgnoreCase(symbol.getName())) {
+                    return String.format("SnmpReadtCounter32FromOid(params, %s)", varName);
                 }
-                return String.format("SnmpReadIntFromOid(params, old_row, %s)", varName);
+                if ("Unsigned32".equalsIgnoreCase(symbol.getName())) {
+                    return String.format("SnmpReadUnsigned32FromOid(params, %s)", varName);
+                }
+                if ("Counter32".equalsIgnoreCase(symbol.getName())) {
+                    return String.format("SnmpReadCounter32FromOid(params, %s)", varName);
+                }
+                if ("Counter64".equalsIgnoreCase(symbol.getName())) {
+                    return String.format("SnmpReadCounter64FromOid(params, %s)", varName);
+                }
+                if ("GAUGE32".equalsIgnoreCase(symbol.getName())) {
+                    return String.format("SnmpReadGauge32FromOid(params, %s)", varName);
+                }
+                if ("GAUGE".equalsIgnoreCase(symbol.getName())) {
+                    return String.format("SnmpReadGauge32FromOid(params, %s)", varName);
+                }
+                return String.format("SnmpRead%sFromOid(params, %s)", symbol.getName(), varName);
+            }
+
+            if( objectType.getSyntax() instanceof IntegerType) {
+                return String.format("SnmpReadIntFromOid(params, %s)", varName);
             } else if( objectType.getSyntax() instanceof StringType) {
-                return String.format("SnmpReadStringFromOid(params, old_row, %s)", varName);
+                return String.format("SnmpReadStringFromOid(params, %s)", varName);
             } else if( objectType.getSyntax() instanceof BitSetType) {
-                return String.format("SnmpReadBitsFromOid(params, old_row,  %s)", varName);
+                return String.format("SnmpReadBitsFromOid(params, %s)", varName);
             } else if( objectType.getSyntax() instanceof ObjectIdentifierType) {
-                return String.format("SnmpReadOidFromOid(params, old_row, %s)", varName);
+                return String.format("SnmpReadOidFromOid(params, %s)", varName);
             }
         }
         throw new RuntimeException(el.getType().toString() + "is unsupported.");
@@ -384,6 +570,12 @@ class GeneratorImpl implements Generator {
 
     @Override
     public void Close() throws IOException {
+        if(!groups.isEmpty()) {
+            for(MibValueSymbol symbol : groups.values()) {
+                GenerateMetaObject(symbol, symbol.getChildren());
+                GenerateGoObjectCode(symbol, symbol.getChildren());
+            }
+        }
         if(!tables.isEmpty()) {
             srcWriter.append("func init() {\r\n");
             for(Map.Entry<String, String> entry : tables.entrySet()) {
@@ -405,11 +597,79 @@ class GeneratorImpl implements Generator {
             srcWriter.append("}\r\n");
         }
 
+        metaWriter.append("</metricDefinitions>");
         metaWriter.close();
         srcWriter.close();
     }
 
-    private String toGoName(String module) {
+    private void GenerateGoObjectCode(MibValueSymbol symbol, MibValueSymbol[] children) throws IOException {
+        children = toLeafOnly(children);
+        if(0 == children.length) {
+            return;
+        }
+
+        srcWriter.append(String.format("type %s struct {\r\n  snmpBase\r\n}\r\n\n", symbol.getName()));
+        srcWriter.append(String.format("func (self *%s) Call(params sampling.MContext) sampling.Result {\r\n", symbol.getName()));
+
+        srcWriter.append("  oids := []string{");
+        for(MibValueSymbol el : children) {
+            srcWriter.append("    \"");
+            srcWriter.append(((ObjectIdentifierValue) el.getValue()).toString());
+            srcWriter.append(".0\",\r\n");
+        }
+        srcWriter.append("  }\r\n");
+        srcWriter.append("  values, e := self.Get(params, oids)\r\n");
+        srcWriter.append("  if nil != e {\r\n");
+        srcWriter.append("    return self.Return(nil, e)\r\n");
+        srcWriter.append("  }\r\n");
+
+        int i = 0;
+        for (MibValueSymbol el : children) {
+            if(isPreRead(el)) {
+                srcWriter.append(String.format("  %s := %s\r\n",
+                        el.getName(), toGoMethod(el, null, "values", String.format("oids[%d]", i))));
+            }
+            i ++;
+        }
+
+        srcWriter.append("  return self.OK(map[string]interface{}{\r\n");
+
+        i = 0;
+        MibValueSymbol prev_el = null;
+        for (MibValueSymbol el : children) {
+            if(isPreRead(el)) {
+                srcWriter.append(String.format("    \"%s\":         %s,\r\n", el.getName(), el.getName()));
+                prev_el = el;
+            } else {
+                srcWriter.append(String.format("    \"%s\":         %s,\r\n",
+                        el.getName(), toGoMethod(el, prev_el, "values", String.format("oids[%d]", i))));
+            }
+            i ++;
+        }
+        srcWriter.append("  })\r\n");
+
+        srcWriter.append("}\r\n\r\n");
+        srcWriter.flush();
+
+        tables.put(symbol.getName(), symbol.getName());
+    }
+
+
+
+    private static MibValueSymbol[] toLeafOnly(MibValueSymbol[] children) {
+        ArrayList<MibValueSymbol> results = new ArrayList<>();
+        for(MibValueSymbol symbol : children) {
+            if(!(symbol.getType() instanceof SnmpObjectType)) {
+                continue;
+            }
+            if (((SnmpObjectType)symbol.getType()).getAccess().canRead()) {
+                results.add(symbol);
+            }
+        }
+        return results.toArray(new MibValueSymbol[results.size()]);
+    }
+
+    private static String toGoName(String module) {
         return module.replaceAll(" ", "_")
                 .replaceAll("\t", "_")
                 .replaceAll("\r", "_")

@@ -809,14 +809,12 @@ public class MibLoader {
                     src = null;
                 }
                 if (src != null && getMib(src.getFile()) == null) {
-                    ArrayList list = src.parseMib(this, log);
-                    for (int i = 0; i < list.size(); i++) {
-                        ((Mib) list.get(i)).setLoaded(loaded);
+                    ArrayList<Mib> list = src.parseMib(this, log);
+                    for(Mib mib: list) {
+                        mib.setLoaded(loaded);
                     }
 
-
-                    for(Object o: list) {
-                      Mib mib = (Mib)o;
+                    for(Mib mib: list) {
                       Mib old = this.mibs.get(mib.getName());
                       if(null == old) {
                         if(is_first) {
@@ -856,14 +854,14 @@ public class MibLoader {
 
         if (log.errorCount() == 0) {
             for (int i = processed.size() - 1; i >= 0; i--) {
-                Mib mib = (Mib) processed.get(i);
-                if(null != mib || "RFC1155-SMI".equals(mib.getName()) ||
+                Mib mib = processed.get(i);
+                if(null != mib && ("RFC1155-SMI".equals(mib.getName()) ||
                    "RFC1158-MIB".equals(mib.getName()) ||
                    "RFC-1212".equals(mib.getName())    ||
                    "RFC-1213".equals(mib.getName())    ||
                    "SNMPv2-TC".equals(mib.getName())   ||
                    "SNMPv2-SMI".equals(mib.getName())  ||
-                   "SNMPv2-CONF".equals(mib.getName())) {
+                   "SNMPv2-CONF".equals(mib.getName()))) {
                   for(Object symbol : mib.getAllSymbols()) {
                     this.context.getSymbolsInBasicModuule().put(((MibSymbol)symbol).getName(), (MibSymbol)symbol);
                   }

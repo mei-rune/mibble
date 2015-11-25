@@ -49,12 +49,12 @@ public class MibLoaderLog {
     /**
      * The log error count.
      */
-    private int errors = 0;
+    private ArrayList<LogEntry> errors = new ArrayList<> ();
 
     /**
      * The log warning count.
      */
-    private int warnings = 0;
+    private ArrayList<LogEntry> warnings = new ArrayList<> ();
 
     /**
      * Creates a new loader log without entries.
@@ -69,7 +69,7 @@ public class MibLoaderLog {
      * @return the number of errors in the log
      */
     public int errorCount() {
-        return errors;
+        return errors.size();
     }
 
     /**
@@ -78,7 +78,7 @@ public class MibLoaderLog {
      * @return the number of warnings in the log
      */
     public int warningCount() {
-        return warnings;
+        return warnings.size();
     }
 
     /**
@@ -88,10 +88,10 @@ public class MibLoaderLog {
      */
     public void add(LogEntry entry) {
         if (entry.isError()) {
-            errors++;
+            errors.add(entry);
         }
         if (entry.isWarning()) {
-            warnings++;
+            warnings.add(entry);
         }
         entries.add(entry);
     }
@@ -204,6 +204,23 @@ public class MibLoaderLog {
         return entries.iterator();
     }
 
+    public ArrayList<LogEntry> entriesByFile(File file) {
+        ArrayList<LogEntry> results = new ArrayList<>();
+        for( LogEntry entry :entries ) {
+            if(file.equals(entry.getFile())) {
+                results.add(entry);
+            }
+        }
+        return results;
+    }
+
+    public ArrayList<LogEntry> errorEntries() {
+        return errors;
+    }
+
+    public ArrayList<LogEntry> warningEntries() {
+        return warnings;
+    }
 
     public void clear() {
         entries.clear();
@@ -236,44 +253,11 @@ public class MibLoaderLog {
      * @since 2.2
      */
     public void printTo(PrintWriter output, int margin) {
-        StringBuilder buffer = new StringBuilder();
+        //StringBuilder buffer = new StringBuilder();
         for (LogEntry entry : entries) {
-            buffer.setLength(0);
-            switch (entry.getType()) {
-            case LogEntry.ERROR:
-                buffer.append("Error: ");
-                break;
-            case LogEntry.WARNING:
-                buffer.append("Warning: ");
-                break;
-            default:
-                buffer.append("Internal Error: ");
-                break;
-            }
-            buffer.append("in ");
-            buffer.append(relativeFilename(entry.getFile()));
-            if (entry.getLineNumber() > 0) {
-                buffer.append(": line ");
-                buffer.append(entry.getLineNumber());
-            }
-            buffer.append(":\n");
-            String str = linebreakString(entry.getMessage(), "    ", margin);
-            buffer.append(str);
-            str = entry.readLine();
-            if (str != null && str.length() >= entry.getColumnNumber()) {
-                buffer.append("\n\n");
-                buffer.append(str);
-                buffer.append("\n");
-                for (int j = 1; j < entry.getColumnNumber(); j++) {
-                    if (str.charAt(j - 1) == '\t') {
-                        buffer.append("\t");
-                    } else {
-                        buffer.append(" ");
-                    }
-                }
-                buffer.append("^");
-            }
-            output.println(buffer.toString());
+            //buffer.setLength(0);
+            entry.toString(margin, output);
+            //output.println(buffer.toString());
         }
         output.flush();
     }
@@ -288,7 +272,7 @@ public class MibLoaderLog {
      * @return the relative name if found, or
      *         the absolute name otherwise
      */
-    private String relativeFilename(File file) {
+    private static String relativeFilename(File file) {
         if (file == null) {
             return "<unknown file>";
         }
@@ -324,7 +308,7 @@ public class MibLoaderLog {
      *
      * @return the new formatted string
      */
-    private String linebreakString(String str, String prefix, int length) {
+    private static String linebreakString(String str, String prefix, int length) {
         StringBuilder buffer = new StringBuilder();
         while (str.length() + prefix.length() > length) {
             int pos = str.lastIndexOf(' ', length - prefix.length());
@@ -482,6 +466,48 @@ public class MibLoaderLog {
          */
         public String readLine() {
             return location.readLine();
+        }
+
+
+        public void toString(int margin, Appendable buffer) {
+            try {
+                switch (this.getType()) {
+                    case LogEntry.ERROR:
+                        buffer.append("Error: ");
+                        break;
+                    case LogEntry.WARNING:
+                        buffer.append("Warning: ");
+                        break;
+                    default:
+                        buffer.append("Internal Error: ");
+                        break;
+                }
+                buffer.append("in ");
+                buffer.append(relativeFilename(this.getFile()));
+                if (this.getLineNumber() > 0) {
+                    buffer.append(": line ");
+                    buffer.append(Integer.toString(this.getLineNumber()));
+                }
+                buffer.append(":\n");
+                String str = linebreakString(this.getMessage(), "    ", margin);
+                buffer.append(str);
+                str = this.readLine();
+                if (str != null && str.length() >= this.getColumnNumber()) {
+                    buffer.append("\n\n");
+                    buffer.append(str);
+                    buffer.append("\n");
+                    for (int j = 1; j < this.getColumnNumber(); j++) {
+                        if (str.charAt(j - 1) == '\t') {
+                            buffer.append("\t");
+                        } else {
+                            buffer.append(" ");
+                        }
+                    }
+                    buffer.append("^");
+                }
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
         }
 
         @Override
