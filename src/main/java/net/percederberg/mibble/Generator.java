@@ -246,14 +246,18 @@ class GeneratorImpl implements Generator {
                 srcWriter.append("      ").append(indexSymbols.get(0).getName()).append(" := key\r\n");
             } else {
                 boolean is_first = true;
+                MibValueSymbol prev_el = null;
                 for (MibValueSymbol indexSym : indexSymbols) {
                     if(is_first) {
                         srcWriter.append("      ").append(indexSym.getName()).
-                                append(", next, e := ").append(toGoReadMethod(indexSym, "toOidFromString(key)")).append("\r\n");
+                                append(", next, e := ").append(toGoReadMethod(indexSym, null, "toOidFromString(key)")).append("\r\n");
                         is_first = false;
                     } else {
+                        if(isPreRead(indexSym)) {
+                            prev_el = indexSym;
+                        }
                         srcWriter.append("      ").append(indexSym.getName()).
-                                append(", next, e := ").append(toGoReadMethod(indexSym, "next")).append("\r\n");
+                                append(", next, e := ").append(toGoReadMethod(indexSym, prev_el, "next")).append("\r\n");
                     }
 
                     srcWriter.append("      if nil != e {\r\n")
@@ -529,7 +533,7 @@ class GeneratorImpl implements Generator {
 
 
     @SuppressWarnings("Duplicates")
-    private String toGoReadMethod(MibValueSymbol el, String varName) {
+    private String toGoReadMethod(MibValueSymbol el, MibValueSymbol prev_el, String varName) {
         if(el.getType() instanceof SnmpObjectType) {
             SnmpObjectType objectType = (SnmpObjectType) el.getType();
             MibTypeSymbol symbol = objectType.getSyntax().getReferenceSymbol();
@@ -551,6 +555,9 @@ class GeneratorImpl implements Generator {
                 }
                 if ("GAUGE".equalsIgnoreCase(symbol.getName())) {
                     return String.format("SnmpReadGauge32FromOid(params, %s)", varName);
+                }
+                if ("InetAddress".equalsIgnoreCase(symbol.getName())) {
+                    return String.format("SnmpReadInetAddressFromOid(params, %s, %s)", varName, prev_el.getName());
                 }
                 return String.format("SnmpRead%sFromOid(params, %s)", symbol.getName(), varName);
             }
