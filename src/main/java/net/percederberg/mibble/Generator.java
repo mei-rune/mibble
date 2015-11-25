@@ -279,26 +279,34 @@ class GeneratorImpl implements Generator {
         }
         srcWriter.append("      return map[string]interface{}{\"key\":                   key,\r\n");
 
+
+
+        for (MibValueSymbol indexSym : indexSymbols) {
+            srcWriter.append(String.format("        \"%s\":         %s,\r\n", indexSym.getName(), indexSym.getName()));
+        }
         MibValueSymbol prev_el = null;
         for (MibValueSymbol el : elementTypes) {
-            if (!((SnmpObjectType) el.getType()).getAccess().canRead()) {
-                boolean found = false;
-                for (MibValueSymbol indexSym : indexSymbols) {
-                    if (indexSym.equals(el)) {
-                        found = true;
-                        break;
-                    }
+            boolean found = false;
+            for (MibValueSymbol indexSym : indexSymbols) {
+                if (indexSym.equals(el)) {
+                    found = true;
+                    break;
                 }
+            }
 
+            if (!((SnmpObjectType) el.getType()).getAccess().canRead()) {
                 if (!found) {
                     srcWriter.append(String.format("        //%s can't read.\r\n", el.getName()));
                     continue;
                 }
 
-                srcWriter.append(String.format("        \"%s\":         %s,\r\n", el.getName(), el.getName()));
+                //srcWriter.append(String.format("        \"%s\":         %s,\r\n", el.getName(), el.getName()));
                 continue;
             }
 
+            if (found) {
+                continue;
+            }
             if(isPreRead(el)) {
                 srcWriter.append(String.format("        \"%s\":         %s,\r\n", el.getName(), el.getName()));
                 prev_el = el;
