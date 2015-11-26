@@ -52,6 +52,7 @@ public class Mib2Go {
         boolean is_dir = false;
         boolean is_tables = false;
         boolean is_cd = false;
+        boolean is_only_types = false;
 
         if(null == args || 0 == args.length) {
             usage();
@@ -64,6 +65,8 @@ public class Mib2Go {
                     return;
                 }
                 tables.add(s);
+            } else if("-only-types".equalsIgnoreCase(s)){
+                is_only_types = true;
             } else if("-dir".equalsIgnoreCase(s)) {
                 is_dir = true;
             } else if(is_dir){
@@ -151,8 +154,9 @@ public class Mib2Go {
             Mib mib = loader.getMib(module);
             if (null != mib) {
                 Generator generator = new GeneratorImpl(managedObject, mib.getName(),
-                        new FileWriter(new File(cd, "meta\\metrics\\mib_" + mib.getName() + "-gen.xml")),
-                        new FileWriter(new File(cd, "sampling\\metrics\\metric_mib_" + mib.getName() + "-gen.go")));
+                        new OutputStreamWriter(new FileOutputStream(new File(cd, "meta\\metrics\\mib_" + mib.getName() + "-gen.xml")),"UTF-8"),
+                        new OutputStreamWriter(new FileOutputStream(new File(cd, "sampling\\metrics\\metric_mib_" + mib.getName() + "-gen-mib.go")),"UTF-8"),
+                        is_only_types);
                 generateMib(mib, tables, generator);
                 generator.Close();
                 return;
@@ -162,8 +166,9 @@ public class Mib2Go {
         if(null != mibs) {
             for (Mib mib1 : mibs) {
                 Generator generator = new GeneratorImpl(managedObject, mib1.getName(),
-                        new FileWriter(new File(cd, "meta\\metrics\\mib_" + mib1.getName() + "-gen.xml")),
-                        new FileWriter(new File(cd, "sampling\\metrics\\metric_mib_" + mib1.getName() + "-gen.go")));
+                        new OutputStreamWriter(new FileOutputStream(new File(cd, "meta\\metrics\\mib_" + mib1.getName() + "-gen.xml")),"UTF-8"),
+                        new OutputStreamWriter(new FileOutputStream(new File(cd, "sampling\\metrics\\metric_mib_" + mib1.getName() + "-gen-mib.go")),"UTF-8"),
+                        is_only_types);
                 generateMib(mib1, tables, generator);
                 generator.Close();
             }

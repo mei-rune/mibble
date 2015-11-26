@@ -29,16 +29,18 @@ class GeneratorImpl implements Generator {
     String managedObject;
     String module;
     Map<String, MibValueSymbol> groups = new HashMap<>();
+    boolean is_only_types;
 
-    public GeneratorImpl(String managedObject, String module, Writer meta, Writer src) throws IOException {
+    public GeneratorImpl(String managedObject, String module, Writer meta, Writer src, boolean is_only_types) throws IOException {
         this.managedObject = managedObject;
         this.module = module;
         this.metaWriter = meta;
         this.srcWriter = src;
+        this.is_only_types = is_only_types;
         this.srcWriter.append("package metrics\r\n\r\n");
 
         this.metaWriter.append("<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\"?>\r\n")
-                .append("<classDefinitions lastModified=\"")
+                .append("<metricDefinitions lastModified=\"")
                 .append(new SimpleDateFormat("yyyy-MM-dd'T'hh:mm:ss").format(new Date()))
                 .append("\"")
                 .append(" class=\"").append(managedObject).append("\"\r\n")
@@ -51,7 +53,7 @@ class GeneratorImpl implements Generator {
         metaWriter.append(String.format("  <metric name=\"%s\" is_array=\"true\">\r\n", symbol.getParent().getName()));
         String classComment = ((SnmpType)symbol.getParent().getType()).getDescription();
         if(null != classComment && !classComment.trim().isEmpty()) {
-            metaWriter.append(String.format("    <description lang=\"zh-cn\">%s</description>\r\n", classComment));
+            metaWriter.append(String.format("    <description lang=\"zh-cn\">%s</description>\r\n", escapeXml(classComment)));
         }
         metaWriter.append(String.format("    <class name=\"%s\">\r\n", symbol.getParent().getName()));
         metaWriter.append("      <property name=\"key\" type=\"string\">\r\n")
@@ -72,6 +74,10 @@ class GeneratorImpl implements Generator {
         }
         metaWriter.append("  </metric>\r\n");
         metaWriter.flush();
+    }
+
+    private String escapeXml(String txt) {
+        return Entities.XML.escape(txt);
     }
 
     private void GenerateMetaObject(MibValueSymbol symbol, MibValueSymbol[] children) throws IOException {
@@ -112,7 +118,7 @@ class GeneratorImpl implements Generator {
                     metaWriter.append(String.format("        %s\n", metaType.GetXmlComment()));
                 }
                 if(null != comment && !comment.trim().isEmpty()) {
-                    metaWriter.append(String.format("        <description lang=\"zh-cn\">%s</description>\n", comment));
+                    metaWriter.append(String.format("        <description lang=\"zh-cn\">%s</description>\n", escapeXml(comment)));
                 }
                 if(0 != values.length) {
                     metaWriter.append("          <enumeration>\r\n");
@@ -341,13 +347,17 @@ class GeneratorImpl implements Generator {
 
     @Override
     public void GenerateGoArray(MibValueSymbol valueSymbol, MibValueSymbol[] children) throws IOException {
-        GenerateMetaTable(valueSymbol, children);
-        GenerateGoTable(valueSymbol, children);
+        if(!is_only_types) {
+            GenerateMetaTable(valueSymbol, children);
+            GenerateGoTable(valueSymbol, children);
+        }
     }
 
     @Override
     public void GenerateGoObject(MibValueSymbol valueSymbol, MibValueSymbol[] children) throws IOException {
-        groups.put(valueSymbol.getParent().getName(), valueSymbol.getParent());
+        if(!is_only_types) {
+            groups.put(valueSymbol.getParent().getName(), valueSymbol.getParent());
+        }
     }
 
     private GoStringValue toGoType(SnmpTextualConvention type) {
