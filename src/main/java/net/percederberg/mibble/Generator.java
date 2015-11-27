@@ -335,11 +335,25 @@ class GeneratorImpl implements Generator {
         srcWriter.append("func SnmpGet").append(symbol.getName());
         GoStringValue value = toGoType(type);
         srcWriter.append(String.format("(params sampling.MContext, values map[string]interface{}, idx string) %s {\r\n", value.name));
-        srcWriter.append(String.format("  return SnmpGet%sWith(params, values, idx, %s)\r\n", value.methodName, value.value));
+        if(null != value.size && !value.size.isEmpty()) {
+            srcWriter.append(String.format("  return SnmpGetFixed%sWith(params, values, idx, %s, \"%s\", %s)\r\n",
+                    value.methodName, value.size, value.displayHint, value.value));
+        } else if(null != value.displayHint && value.displayHint.isEmpty()) {
+            srcWriter.append(String.format("  return SnmpGet%sWithDisplayHintAndDefaultValue(params, values, idx,  \"%s\", %s)\r\n", value.methodName, value.displayHint, value.value));
+        } else {
+            srcWriter.append(String.format("  return SnmpGet%sWith(params, values, idx, %s)\r\n", value.methodName, value.value));
+        }
         srcWriter.append("}\r\n");
         srcWriter.append("func SnmpRead").append(symbol.getName());
         srcWriter.append(String.format("FromOid(params sampling.MContext, oid []int) (%s, []int, error) {\r\n", value.name));
-        srcWriter.append(String.format("  return SnmpRead%sFromOid(params, oid)\r\n", value.methodName));
+        if(null != value.size && !value.size.isEmpty()) {
+            srcWriter.append(String.format("  return SnmpReadFixed%sFromOid(params, oid, %s, \"%s\")\r\n",
+                    value.methodName, value.size, value.displayHint));
+        } else if(null != value.displayHint && value.displayHint.isEmpty()) {
+            srcWriter.append(String.format("  return SnmpRead%sWithDisplayHintAndDefaultValue(params, oid,  \"%s\")\r\n", value.methodName, value.displayHint));
+        } else {
+            srcWriter.append(String.format("  return SnmpRead%sFromOid(params, oid)\r\n", value.methodName));
+        }
         srcWriter.append("}\r\n");
         srcWriter.append("\r\n");
         srcWriter.append("\r\n");
@@ -364,6 +378,44 @@ class GeneratorImpl implements Generator {
         if( type.getSyntax() instanceof IntegerType) {
             return new GoStringValue("Int", "int", "0");
         } else if( type.getSyntax() instanceof StringType) {
+            if("OCTET STRING".equalsIgnoreCase(type.getSyntax().getName())) {
+                Constraint constraint = ((StringType) type.getSyntax()).getConstraint();
+                if(constraint instanceof SizeConstraint) {
+                    SizeConstraint size = (SizeConstraint) constraint;
+                    if(null != size.getValues() && size.getValues().size() == 1 && size.getValues().get(0).toString().contains("..")) {
+                        return new GoStringValue("OctetString", "string", "\"\"", type.getDisplayHint(), size.getValues().get(0).toString());
+                    }
+                }
+                return new GoStringValue("OctetString", "string", "\"\"", type.getDisplayHint(), null);
+            }
+            if("Opaque".equalsIgnoreCase(type.getSyntax().getName())) {
+                Constraint constraint = ((StringType) type.getSyntax()).getConstraint();
+                if(constraint instanceof SizeConstraint) {
+                    SizeConstraint size = (SizeConstraint) constraint;
+                    if(null != size.getValues() && size.getValues().size() == 1 && size.getValues().get(0).toString().contains("..")) {
+                        return new GoStringValue("OpaqueString", "string", "\"\"", type.getDisplayHint(), size.getValues().get(0).toString());
+                    }
+                }
+                return new GoStringValue("OpaqueString", "string", "\"\"", type.getDisplayHint(), null);
+            }
+            if ("MacAddress".equalsIgnoreCase(type.getSyntax().getName())) {
+                return new GoStringValue("MacAddress", "string", "\"\"");
+            }
+            if ("PhysAddress".equalsIgnoreCase(type.getSyntax().getName())) {
+                return new GoStringValue("PhysAddress", "string", "\"\"");
+            }
+            if ("IpAddress".equalsIgnoreCase(type.getSyntax().getName())) {
+                return new GoStringValue("IpAddress", "string", "\"\"");
+            }
+            if ("SnmpAdminString".equalsIgnoreCase(type.getSyntax().getName())) {
+                return new GoStringValue("SnmpAdminString", "string", "\"\"");
+            }
+            if ("OwnerString".equalsIgnoreCase(type.getSyntax().getName())) {
+                return new GoStringValue("OwnerString", "string", "\"\"");
+            }
+            if ("DisplayString".equalsIgnoreCase(type.getSyntax().getName())) {
+                return new GoStringValue("DisplayString", "string", "\"\"");
+            }
             return new GoStringValue("String", "string", "\"\"");
         } else if( type.getSyntax() instanceof BitSetType) {
             return new GoStringValue("Bits", "string", "\"\"");
@@ -521,6 +573,9 @@ class GeneratorImpl implements Generator {
                 if ("DisplayString".equalsIgnoreCase(symbol.getName())) {
                     return String.format("SnmpGetDisplayStringWith(params, %s, %s, \"\")", varName, oid);
                 }
+                if ("OwnerString".equalsIgnoreCase(symbol.getName())) {
+                    return String.format("SnmpGetOwnerStringWith(params, %s, %s, \"\")", varName, oid);
+                }
                 if ("AutonomousType".equalsIgnoreCase(symbol.getName())) {
                     return String.format("SnmpGetAutonomousTypeWith(params, %s, %s)", varName, oid);
                 }
@@ -530,8 +585,29 @@ class GeneratorImpl implements Generator {
                 if ("RowPointer".equalsIgnoreCase(symbol.getName())) {
                     return String.format("SnmpGetRowPointerWith(params, %s, %s)", varName, oid);
                 }
+                if ("IpAddress".equalsIgnoreCase(symbol.getName())) {
+                    return String.format("SnmpGetIpAddressWithType(params, %s, %s, \"\")", varName, oid);
+                }
                 if ("InetAddress".equalsIgnoreCase(symbol.getName())) {
                     return String.format("SnmpGetInetAddressWithType(params, %s, %s, %s)", varName, oid, prev_el.getName());
+                }
+                if ("OCTET STRING".equalsIgnoreCase(symbol.getName())) {
+
+//                    Constraint constraint = ((StringType) objectType.getSyntax()).getConstraint();
+//                    if(constraint instanceof SizeConstraint) {
+//                        SizeConstraint size = (SizeConstraint) constraint;
+//                        if(null != size.getValues() && size.getValues().size() == 1) {
+//                            return new GoStringValue("SnmpGetFixedOctetStringWith", "string", "\"\"", displayHint, size.getValues().get(0).toString());
+//                        }
+//                    }
+//
+//                    if(null != displayHint && !displayHint.isEmpty()) {
+//                        return String.format("SnmpGetOctetStringWith(params, %s, %s, \"\")", varName, oid);
+//                    }
+                    return String.format("SnmpGetOctetStringWith(params, %s, %s, \"\")", varName, oid);
+                }
+                if ("Opaque".equalsIgnoreCase(symbol.getName())) {
+                    return String.format("SnmpGetOpaqueStringWith(params, %s, %s, \"\")", varName, oid);
                 }
                 return String.format("SnmpGet%s(params, %s, %s)", symbol.getName(), varName, oid);
             }
@@ -539,6 +615,18 @@ class GeneratorImpl implements Generator {
             if( objectType.getSyntax() instanceof IntegerType) {
                 return String.format("SnmpGetIntWith(params, %s, %s, 0)", varName, oid);
             } else if( objectType.getSyntax() instanceof StringType) {
+
+                String displayHint= null;
+                Constraint constraint = ((StringType) objectType.getSyntax()).getConstraint();
+                if(constraint instanceof SizeConstraint) {
+                    SizeConstraint size = (SizeConstraint) constraint;
+                    if(null != size.getValues() && size.getValues().size() == 1) {
+                        return String.format("SnmpGetFixedOctetStringWith(params, %s, %s,%s, \"%s\", \"\")", varName, oid, size, displayHint);
+                    }
+                }
+                if(null != displayHint && !displayHint.isEmpty()) {
+                    return String.format("SnmpGetOctetStringWithDisplayHintAndDefaultValue(params, %s, %s, %s, \"%s\", \"\")", varName, oid, displayHint);
+                }
                 return String.format("SnmpGetStringWith(params, %s, %s, \"\")", varName, oid);
             } else if( objectType.getSyntax() instanceof BitSetType) {
                 return String.format("SnmpGetStringWith(params, %s, %s, \"\")", varName, oid);
@@ -722,11 +810,21 @@ class GeneratorImpl implements Generator {
         public String methodName;
         public String name;
         public String value;
+        public String size;
+        public String displayHint;
 
         public GoStringValue(String methodName, String name, String value) {
             this.methodName = methodName;
             this.name = name;
             this.value = value;
+        }
+
+        public GoStringValue(String methodName, String name, String value, String displayHint, String size) {
+            this.methodName = methodName;
+            this.name = name;
+            this.value = value;
+            this.displayHint = displayHint;
+            this.size = size;
         }
     }
 
