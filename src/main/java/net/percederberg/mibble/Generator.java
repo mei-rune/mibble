@@ -382,7 +382,7 @@ class GeneratorImpl implements Generator {
                 Constraint constraint = ((StringType) type.getSyntax()).getConstraint();
                 if(constraint instanceof SizeConstraint) {
                     SizeConstraint size = (SizeConstraint) constraint;
-                    if(null != size.getValues() && size.getValues().size() == 1 && size.getValues().get(0).toString().contains("..")) {
+                    if(null != size.getValues() && size.getValues().size() == 1 && !size.getValues().get(0).toString().contains("..")) {
                         return new GoStringValue("OctetString", "string", "\"\"", type.getDisplayHint(), size.getValues().get(0).toString());
                     }
                 }
@@ -392,7 +392,7 @@ class GeneratorImpl implements Generator {
                 Constraint constraint = ((StringType) type.getSyntax()).getConstraint();
                 if(constraint instanceof SizeConstraint) {
                     SizeConstraint size = (SizeConstraint) constraint;
-                    if(null != size.getValues() && size.getValues().size() == 1 && size.getValues().get(0).toString().contains("..")) {
+                    if(null != size.getValues() && size.getValues().size() == 1 && !size.getValues().get(0).toString().contains("..")) {
                         return new GoStringValue("OpaqueString", "string", "\"\"", type.getDisplayHint(), size.getValues().get(0).toString());
                     }
                 }
