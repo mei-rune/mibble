@@ -27,6 +27,7 @@ import java.io.PrintStream;
 import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Iterator;
+import java.util.List;
 
 import net.percederberg.grammatica.parser.ParseException;
 import net.percederberg.grammatica.parser.ParserLogException;
@@ -200,8 +201,8 @@ public class MibLoaderLog {
      *
      * @since 2.2
      */
-    public Iterator<LogEntry> entries() {
-        return entries.iterator();
+    public Iterable<LogEntry> entries() {
+        return entries;
     }
 
     public ArrayList<LogEntry> entriesByFile(File file) {
@@ -214,11 +215,11 @@ public class MibLoaderLog {
         return results;
     }
 
-    public ArrayList<LogEntry> errorEntries() {
+    public Iterable<LogEntry> errorEntries() {
         return errors;
     }
 
-    public ArrayList<LogEntry> warningEntries() {
+    public Iterable<LogEntry> warningEntries() {
         return warnings;
     }
 

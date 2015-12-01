@@ -1,5 +1,9 @@
-package net.percederberg.mibble;
+package net.percederberg.mibble.compiler;
 
+import net.percederberg.mibble.MibType;
+import net.percederberg.mibble.MibTypeSymbol;
+import net.percederberg.mibble.MibValue;
+import net.percederberg.mibble.MibValueSymbol;
 import net.percederberg.mibble.snmp.SnmpIndex;
 import net.percederberg.mibble.snmp.SnmpObjectType;
 import net.percederberg.mibble.snmp.SnmpTextualConvention;
@@ -15,17 +19,13 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 
-public interface Generator {
-    void GenerateGoType(MibTypeSymbol mibSymbol, SnmpTextualConvention symbol) throws IOException;
-    void GenerateGoArray(MibValueSymbol valueSymbol, MibValueSymbol[] children) throws IOException;
-    void GenerateGoObject(MibValueSymbol valueSymbol, MibValueSymbol[] children) throws IOException;
-    void Close() throws IOException;
-}
-
+/**
+ * Created on 2015/11/30.
+ */
 class GeneratorImpl implements Generator {
     Writer metaWriter;
     Writer srcWriter;
-    Map<String,String> tables = new HashMap<>();
+    Map<String,MetricSpec> tables = new HashMap<>();
     String managedObject;
     String module;
     Map<String, MibValueSymbol> groups = new HashMap<>();
@@ -50,7 +50,12 @@ class GeneratorImpl implements Generator {
     }
 
     public void GenerateMetaTable(MibValueSymbol symbol, MibValueSymbol[] elementTypes) throws IOException {
-        metaWriter.append(String.format("  <metric name=\"%s\" is_array=\"true\">\r\n", symbol.getParent().getName()));
+        MibValue arguments = ((SnmpObjectType) symbol.getType()).getAugments();
+        if (null != arguments) {
+            metaWriter.append(String.format("  <metric name=\"%s\">\r\n", symbol.getParent().getName()));
+        } else {
+            metaWriter.append(String.format("  <metric name=\"%s\" is_array=\"true\">\r\n", symbol.getParent().getName()));
+        }
         String classComment = ((SnmpType)symbol.getParent().getType()).getDescription();
         if(null != classComment && !classComment.trim().isEmpty()) {
             metaWriter.append(String.format("    <description lang=\"zh-cn\">%s</description>\r\n", escapeXml(classComment)));
@@ -63,7 +68,6 @@ class GeneratorImpl implements Generator {
         generateChildrenMeta(elementTypes);
         metaWriter.append("    </class>\r\n");
 
-        MibValue arguments = ((SnmpObjectType) symbol.getType()).getAugments();
         if(null != arguments ) {
             metaWriter.append("    <arguments>\r\n" +
                     "      <argument name=\"key\" type=\"string\">\r\n" +
@@ -161,13 +165,15 @@ class GeneratorImpl implements Generator {
         if(null != arguments ) {
             ObjectIdentifierValue args = (ObjectIdentifierValue) arguments;
             generateReadByArguments(symbol, elementTypes, args);
+
+            tables.put(name, new MetricSpec(name, name, false));
         } else {
             generateReadAll(symbol, elementTypes);
+            tables.put(name, new MetricSpec(name, name, true));
         }
         srcWriter.append("}\r\n\r\n");
         srcWriter.flush();
 
-        tables.put(name, name);
     }
 
     private void generateReadByArguments(MibValueSymbol symbol, MibValueSymbol[] elementTypes, ObjectIdentifierValue args) throws IOException {
@@ -179,7 +185,7 @@ class GeneratorImpl implements Generator {
         for(MibValueSymbol el : elementTypes) {
             if (((SnmpObjectType)el.getType()).getAccess().canRead()) {
                 srcWriter.append("    \"");
-                srcWriter.append(((ObjectIdentifierValue) el.getValue()).toString());
+                srcWriter.append(el.getValue().toString());
                 srcWriter.append(".\" + key,\r\n");
             }
         }
@@ -216,6 +222,7 @@ class GeneratorImpl implements Generator {
 
             if(isPreRead(el)) {
                 srcWriter.append(String.format("    \"%s\":         %s,\r\n",el.getName(), el.getName()));
+                prev_el = el;
             } else {
                 srcWriter.append(String.format("    \"%s\":         %s,\r\n",
                         el.getName(), toGoMethod(el, prev_el, "values", String.format("oids[%d]", i))));
@@ -239,7 +246,7 @@ class GeneratorImpl implements Generator {
         }
 
 
-        srcWriter.append(String.format("  return self.GetAllResult(params, \"%s\", []int{%s},\r\n", ((ObjectIdentifierValue) symbol.getValue()).toString(), columns));
+        srcWriter.append(String.format("  return self.GetAllResult(params, \"%s\", []int{%s},\r\n", symbol.getValue().toString(), columns));
         srcWriter.append("    func(key string, old_row map[string]interface{}) (interface{}, error) {\r\n");
 
         ArrayList<SnmpIndex> indexes = ((SnmpObjectType) symbol.getType()).getIndex();
@@ -691,11 +698,11 @@ class GeneratorImpl implements Generator {
         }
         if(!tables.isEmpty()) {
             srcWriter.append("func init() {\r\n");
-            for(Map.Entry<String, String> entry : tables.entrySet()) {
+            for(Map.Entry<String, MetricSpec> entry : tables.entrySet()) {
                 srcWriter.append(" sampling.RegisterRouteSpec(\"").append(entry.getKey()).append("_default\", \"get\", \"")
-                        .append(this.managedObject).append("\", \"").append(entry.getKey()).append("\", \"\", nil,\r\n")
+                        .append(this.managedObject).append("\", \"").append(entry.getValue().metric).append("\", \"\", nil,\r\n")
                     .append("    func(rs *sampling.RouteSpec, params map[string]interface{}) (sampling.Method, error) {\r\n")
-                    .append("      drv := &").append(entry.getKey()).append("{}\r\n")
+                    .append("      drv := &").append(entry.getValue().implName).append("{}\r\n")
                     .append("      return drv, drv.Init(rs, params)\r\n")
                     .append("    })\r\n");
             }
@@ -704,8 +711,9 @@ class GeneratorImpl implements Generator {
 
             String moduleName = toGoName(module);
             srcWriter.append("var ").append(moduleName).append(" = []MibModule{\r\n");
-            for(Map.Entry<String, String> entry : tables.entrySet()) {
-                srcWriter.append("  {Name: \"").append(entry.getKey()).append("\", IsArray: true},\r\n");
+            for(Map.Entry<String, MetricSpec> entry : tables.entrySet()) {
+                srcWriter.append("  {Name: \"").append(entry.getKey()).append("\", IsArray: ")
+                        .append(entry.getValue().isArray?"true":"false").append("},\r\n");
             }
             srcWriter.append("}\r\n");
         }
@@ -727,7 +735,7 @@ class GeneratorImpl implements Generator {
         srcWriter.append("  oids := []string{");
         for(MibValueSymbol el : children) {
             srcWriter.append("    \"");
-            srcWriter.append(((ObjectIdentifierValue) el.getValue()).toString());
+            srcWriter.append(el.getValue().toString());
             srcWriter.append(".0\",\r\n");
         }
         srcWriter.append("  }\r\n");
@@ -764,7 +772,7 @@ class GeneratorImpl implements Generator {
         srcWriter.append("}\r\n\r\n");
         srcWriter.flush();
 
-        tables.put(symbol.getName(), symbol.getName());
+        tables.put(symbol.getName(), new MetricSpec(symbol.getName(), symbol.getName(), false));
     }
 
 

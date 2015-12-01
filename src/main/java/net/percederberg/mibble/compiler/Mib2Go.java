@@ -1,5 +1,6 @@
-package net.percederberg.mibble;
+package net.percederberg.mibble.compiler;
 
+import net.percederberg.mibble.*;
 import net.percederberg.mibble.snmp.SnmpObjectType;
 import net.percederberg.mibble.snmp.SnmpTextualConvention;
 import net.percederberg.mibble.type.ObjectIdentifierType;
@@ -282,7 +283,14 @@ public class Mib2Go {
                             "trp".equals(ext)||
                             "smi".equals(ext)||
                             "smi".equals(ext)) {
-                        loader.load(file, log);
+
+                        MibLoaderLog tmpLog = new MibLoaderLog();
+                        loader.load(file, tmpLog);
+                        if(tmpLog.errorCount() > 0) {
+                            for(MibLoaderLog.LogEntry logEntry : tmpLog.entries()) {
+                                log.add(logEntry);
+                            }
+                        }
                     }
                 } catch (IOException e){
                     logPrint(String.format("load '%s' failed, ", file), e);
