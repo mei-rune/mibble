@@ -351,17 +351,19 @@ class GeneratorImpl implements Generator {
             srcWriter.append(String.format("  return SnmpGet%sWith(params, values, idx, %s)\r\n", value.methodName, value.value));
         }
         srcWriter.append("}\r\n");
-        srcWriter.append("func SnmpRead").append(symbol.getName());
-        srcWriter.append(String.format("FromOid(params sampling.MContext, oid []int) (%s, []int, error) {\r\n", value.name));
-        if(null != value.size && !value.size.isEmpty()) {
-            srcWriter.append(String.format("  return SnmpReadFixed%sFromOid(params, oid, %s, \"%s\")\r\n",
-                    value.methodName, value.size, value.displayHint));
-        } else if(null != value.displayHint && value.displayHint.isEmpty()) {
-            srcWriter.append(String.format("  return SnmpRead%sWithDisplayHintAndDefaultValue(params, oid,  \"%s\")\r\n", value.methodName, value.displayHint));
-        } else {
-            srcWriter.append(String.format("  return SnmpRead%sFromOid(params, oid)\r\n", value.methodName));
+        if(!value.methodName.startsWith("Time")) {
+            srcWriter.append("func SnmpRead").append(symbol.getName());
+            srcWriter.append(String.format("FromOid(params sampling.MContext, oid []int) (%s, []int, error) {\r\n", value.name));
+            if (null != value.size && !value.size.isEmpty()) {
+                srcWriter.append(String.format("  return SnmpReadFixed%sFromOid(params, oid, %s, \"%s\")\r\n",
+                        value.methodName, value.size, value.displayHint));
+            } else if (null != value.displayHint && value.displayHint.isEmpty()) {
+                srcWriter.append(String.format("  return SnmpRead%sWithDisplayHintAndDefaultValue(params, oid,  \"%s\")\r\n", value.methodName, value.displayHint));
+            } else {
+                srcWriter.append(String.format("  return SnmpRead%sFromOid(params, oid)\r\n", value.methodName));
+            }
+            srcWriter.append("}\r\n");
         }
-        srcWriter.append("}\r\n");
         srcWriter.append("\r\n");
         srcWriter.append("\r\n");
     }
@@ -382,9 +384,41 @@ class GeneratorImpl implements Generator {
     }
 
     private GoStringValue toGoType(SnmpTextualConvention type) {
+        MibTypeSymbol symbol = type.getSyntax().getReferenceSymbol();
         if( type.getSyntax() instanceof IntegerType) {
+            if(null != symbol) {
+                if ("Counter".equalsIgnoreCase(symbol.getName())) {
+                    return new GoStringValue("Uint", "uint", "0");
+                }
+                if ("Unsigned32".equalsIgnoreCase(symbol.getName())) {
+                    return new GoStringValue("Unsigned32", "uint32", "0");
+                }
+                if ("Counter32".equalsIgnoreCase(symbol.getName())) {
+                    return new GoStringValue("Uint", "uint", "0");
+                }
+                if ("Counter64".equalsIgnoreCase(symbol.getName())) {
+                    return new GoStringValue("Uint64", "uint64", "0");
+                }
+                if ("GAUGE32".equalsIgnoreCase(symbol.getName())) {
+                    return new GoStringValue("Gauge32", "uint32", "0");
+                }
+                if ("GAUGE".equalsIgnoreCase(symbol.getName())) {
+                    return new GoStringValue("Gauge32", "uint32", "0");
+                }
+                if ("Integer32".equalsIgnoreCase(symbol.getName())) {
+                    return new GoStringValue("Integer32", "int32", "0");
+                }
+                if ("TimeTicks".equalsIgnoreCase(symbol.getName())) {
+                    return new GoStringValue("TimeTicks", "time.Duration", "0");
+                }
+                if ("TimeInterval".equalsIgnoreCase(symbol.getName())) {
+                    return new GoStringValue("TimeInterval", "time.Duration", "0");
+                }
+                return new GoStringValue(symbol.getName(), "int", "0");
+            }
             return new GoStringValue("Int", "int", "0");
         } else if( type.getSyntax() instanceof StringType) {
+            //noinspection Duplicates
             if("OCTET STRING".equalsIgnoreCase(type.getSyntax().getName())) {
                 Constraint constraint = ((StringType) type.getSyntax()).getConstraint();
                 if(constraint instanceof SizeConstraint) {
@@ -395,6 +429,7 @@ class GeneratorImpl implements Generator {
                 }
                 return new GoStringValue("OctetString", "string", "\"\"", type.getDisplayHint(), null);
             }
+            //noinspection Duplicates
             if("Opaque".equalsIgnoreCase(type.getSyntax().getName())) {
                 Constraint constraint = ((StringType) type.getSyntax()).getConstraint();
                 if(constraint instanceof SizeConstraint) {
