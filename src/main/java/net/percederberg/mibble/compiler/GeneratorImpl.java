@@ -256,7 +256,20 @@ class GeneratorImpl implements Generator {
                 indexSymbols.add(((ObjectIdentifierValue) index.getValue()).getSymbol());
             }
             if (indexes.size() == 1) {
-                srcWriter.append("      ").append(indexSymbols.get(0).getName()).append(" := key\r\n");
+                MibValueSymbol idxSymbol = indexSymbols.get(0);
+                if( idxSymbol.getType() instanceof SnmpObjectType &&
+                ((SnmpObjectType) idxSymbol.getType()).getSyntax() instanceof StringType) {
+                    srcWriter.append("      ").append(idxSymbol.getName()).
+                            append(", _, e := ").append(toGoReadMethod(idxSymbol, null, "toOidFromString(key)")).append("\r\n");
+
+                    srcWriter.append("      if nil != e {\r\n")
+                            .append("        return nil, errors.New(\"failed to read ")
+                            .append(idxSymbol.getName())
+                            .append(", key '\" + key + \"' is invalid.\")\r\n")
+                            .append("      }\r\n");
+                } else {
+                    srcWriter.append("      ").append(idxSymbol.getName()).append(" := key\r\n");
+                }
             } else {
                 boolean is_first = true;
                 MibValueSymbol prev_el = null;
@@ -418,6 +431,25 @@ class GeneratorImpl implements Generator {
             }
             return new GoStringValue("Int", "int", "0");
         } else if( type.getSyntax() instanceof StringType) {
+            if ("MacAddress".equalsIgnoreCase(type.getSyntax().getName())) {
+                return new GoStringValue("MacAddress", "string", "\"\"");
+            }
+            if ("PhysAddress".equalsIgnoreCase(type.getSyntax().getName())) {
+                return new GoStringValue("PhysAddress", "string", "\"\"");
+            }
+            if ("IpAddress".equalsIgnoreCase(type.getSyntax().getName())) {
+                return new GoStringValue("IpAddress", "string", "\"\"");
+            }
+            if ("SnmpAdminString".equalsIgnoreCase(type.getSyntax().getName())) {
+                return new GoStringValue("SnmpAdminString", "string", "\"\"");
+            }
+            if ("OwnerString".equalsIgnoreCase(type.getSyntax().getName())) {
+                return new GoStringValue("OwnerString", "string", "\"\"");
+            }
+            if ("DisplayString".equalsIgnoreCase(type.getSyntax().getName())) {
+                return new GoStringValue("DisplayString", "string", "\"\"");
+            }
+
             //noinspection Duplicates
             if("OCTET STRING".equalsIgnoreCase(type.getSyntax().getName())) {
                 Constraint constraint = ((StringType) type.getSyntax()).getConstraint();
@@ -439,24 +471,6 @@ class GeneratorImpl implements Generator {
                     }
                 }
                 return new GoStringValue("OpaqueString", "string", "\"\"", type.getDisplayHint(), null);
-            }
-            if ("MacAddress".equalsIgnoreCase(type.getSyntax().getName())) {
-                return new GoStringValue("MacAddress", "string", "\"\"");
-            }
-            if ("PhysAddress".equalsIgnoreCase(type.getSyntax().getName())) {
-                return new GoStringValue("PhysAddress", "string", "\"\"");
-            }
-            if ("IpAddress".equalsIgnoreCase(type.getSyntax().getName())) {
-                return new GoStringValue("IpAddress", "string", "\"\"");
-            }
-            if ("SnmpAdminString".equalsIgnoreCase(type.getSyntax().getName())) {
-                return new GoStringValue("SnmpAdminString", "string", "\"\"");
-            }
-            if ("OwnerString".equalsIgnoreCase(type.getSyntax().getName())) {
-                return new GoStringValue("OwnerString", "string", "\"\"");
-            }
-            if ("DisplayString".equalsIgnoreCase(type.getSyntax().getName())) {
-                return new GoStringValue("DisplayString", "string", "\"\"");
             }
             return new GoStringValue("String", "string", "\"\"");
         } else if( type.getSyntax() instanceof BitSetType) {
