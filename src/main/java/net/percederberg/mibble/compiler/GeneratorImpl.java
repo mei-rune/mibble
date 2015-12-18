@@ -173,20 +173,23 @@ class GeneratorImpl implements Generator {
         }
         srcWriter.append("}\r\n\r\n");
         srcWriter.flush();
-
     }
 
     private void generateReadByArguments(MibValueSymbol symbol, MibValueSymbol[] elementTypes, ObjectIdentifierValue args) throws IOException {
         srcWriter.append("  key := params.GetStringWithDefault(\"key\", \"\")\r\n")
-            .append("  if \"\" == key {\r\n")
-            .append("    return self.Return(nil, sampling.BadRequest(\"'key' is missing.\"))\r\n")
-            .append("  }\r\n\r\n")
-            .append("  oids := []string{");
+                .append("  if \"\" == key {\r\n")
+                .append("    return self.Return(nil, sampling.BadRequest(\"'key' is missing.\"))\r\n")
+                .append("  }\r\n\r\n");
+        generateReadByIdx(symbol, elementTypes, "key");
+    }
+
+    private void generateReadByIdx(MibValueSymbol symbol, MibValueSymbol[] elementTypes, String keyName) throws IOException {
+            srcWriter.append("  oids := []string{");
         for(MibValueSymbol el : elementTypes) {
             if (((SnmpObjectType)el.getType()).getAccess().canRead()) {
                 srcWriter.append("    \"");
                 srcWriter.append(el.getValue().toString());
-                srcWriter.append(".\" + key,\r\n");
+                srcWriter.append(".\" + ").append(keyName).append(",\r\n");
             }
         }
         srcWriter.append("  }\r\n");
@@ -210,7 +213,7 @@ class GeneratorImpl implements Generator {
             i ++;
         }
 
-        srcWriter.append("  return self.OK(map[string]interface{}{\"key\":                   key,\r\n");
+        srcWriter.append("  return self.OK(map[string]interface{}{\"key\":          ").append(keyName).append(",\r\n");
 
         i = 0;
         MibValueSymbol prev_el = null;
@@ -244,6 +247,11 @@ class GeneratorImpl implements Generator {
         if(columns.length() >= 2) {
             columns.setLength(columns.length() - 2);
         }
+
+        srcWriter.append("  oid_idx := params.GetStringWithDefault(\"key\", \"\")\r\n");
+        srcWriter.append("  if \"\" != oid_idx {\r\n");
+        generateReadByIdx(symbol, elementTypes, "oid_idx");
+        srcWriter.append("  }\r\n");
 
 
         srcWriter.append(String.format("  return self.GetAllResult(params, \"%s\", []int{%s},\r\n", symbol.getValue().toString(), columns));
