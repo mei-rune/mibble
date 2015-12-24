@@ -31,6 +31,7 @@ class GeneratorImpl implements Generator {
     Map<String, MibValueSymbol> groups = new HashMap<>();
     boolean is_only_types;
 
+
     public GeneratorImpl(String managedObject, String module, Writer meta, Writer src, boolean is_only_types) throws IOException {
         this.managedObject = managedObject;
         this.module = module;
@@ -39,17 +40,23 @@ class GeneratorImpl implements Generator {
         this.is_only_types = is_only_types;
         this.srcWriter.append("package metrics\r\n\r\n");
 
-        this.metaWriter.append("<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\"?>\r\n")
-                .append("<metricDefinitions lastModified=\"")
-                .append(new SimpleDateFormat("yyyy-MM-dd'T'hh:mm:ss").format(new Date()))
-                .append("\"")
-                .append(" class=\"").append(managedObject).append("\"\r\n")
-                .append("   xmlns=\"http://schemas.hengwei.com.cn/tpt/1/metricDefinitions\"")
-                .append("   xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"")
-                .append("   xsi:schemaLocation=\"http://schemas.hengwei.com.cn/tpt/1/metricDefinitions metricDefinitions.xsd\">\r\n");
+        if(null != metaWriter) {
+            this.metaWriter.append("<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\"?>\r\n")
+                    .append("<metricDefinitions lastModified=\"")
+                    .append(new SimpleDateFormat("yyyy-MM-dd'T'hh:mm:ss").format(new Date()))
+                    .append("\"")
+                    .append(" class=\"").append(managedObject).append("\"\r\n")
+                    .append("   xmlns=\"http://schemas.hengwei.com.cn/tpt/1/metricDefinitions\"")
+                    .append("   xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"")
+                    .append("   xsi:schemaLocation=\"http://schemas.hengwei.com.cn/tpt/1/metricDefinitions metricDefinitions.xsd\">\r\n");
+        }
     }
 
     public void GenerateMetaTable(MibValueSymbol symbol, MibValueSymbol[] elementTypes) throws IOException {
+        if(null == metaWriter) {
+            return;
+        }
+
         MibValue arguments = ((SnmpObjectType) symbol.getType()).getAugments();
         if (null != arguments) {
             metaWriter.append(String.format("  <metric name=\"%s\">\r\n", symbol.getParent().getName()));
@@ -85,11 +92,14 @@ class GeneratorImpl implements Generator {
     }
 
     private void GenerateMetaObject(MibValueSymbol symbol, MibValueSymbol[] children) throws IOException {
+        if(null == metaWriter) {
+            return;
+        }
+
         children = toLeafOnly(children);
         if(0 == children.length) {
             return;
         }
-
 
         metaWriter.append(String.format("  <metric name=\"%s\">\r\n", symbol.getName()));
 //        String classComment = ((SnmpType)symbol.getType()).getDescription();
@@ -650,10 +660,14 @@ class GeneratorImpl implements Generator {
                     return String.format("SnmpGetRowPointerWith(params, %s, %s)", varName, oid);
                 }
                 if ("IpAddress".equalsIgnoreCase(symbol.getName())) {
-                    return String.format("SnmpGetIpAddressWithType(params, %s, %s, \"\")", varName, oid);
+                    return String.format("SnmpGetIpAddressWith(params, %s, %s, \"\")", varName, oid);
                 }
                 if ("InetAddress".equalsIgnoreCase(symbol.getName())) {
-                    return String.format("SnmpGetInetAddressWithType(params, %s, %s, %s)", varName, oid, prev_el.getName());
+                    if(null == prev_el) {
+                        return String.format("SnmpGetInetAddressWith(params, %s, %s, \"\")", varName, oid);
+                    } else {
+                        return String.format("SnmpGetInetAddressWithType(params, %s, %s, %s)", varName, oid, prev_el.getName());
+                    }
                 }
                 if ("OCTET STRING".equalsIgnoreCase(symbol.getName())) {
 
@@ -685,7 +699,9 @@ class GeneratorImpl implements Generator {
                 if(constraint instanceof SizeConstraint) {
                     SizeConstraint size = (SizeConstraint) constraint;
                     if(null != size.getValues() && size.getValues().size() == 1) {
-                        return String.format("SnmpGetFixedOctetStringWith(params, %s, %s,%s, \"%s\", \"\")", varName, oid, size, displayHint);
+                        if( !(size.getValues().get(0) instanceof ValueRangeConstraint)) {
+                            return String.format("SnmpGetFixedOctetStringWith(params, %s, %s,%s, \"%s\", \"\")", varName, oid, size, displayHint);
+                        }
                     }
                 }
                 if(null != displayHint && !displayHint.isEmpty()) {
@@ -754,19 +770,25 @@ class GeneratorImpl implements Generator {
             }
         }
         if(!tables.isEmpty()) {
-            srcWriter.append("func init() {\r\n");
-            for(Map.Entry<String, MetricSpec> entry : tables.entrySet()) {
+            String moduleName = toGoName(module);
+
+            if(null != metaWriter) {
+                srcWriter.append("func init() {\r\n");
+            } else {
+                srcWriter.append("func Register").append(moduleName).append("() {\r\n");
+            }
+
+            for (Map.Entry<String, MetricSpec> entry : tables.entrySet()) {
                 srcWriter.append(" sampling.RegisterRouteSpec(\"").append(entry.getKey()).append("_default\", \"get\", \"")
                         .append(this.managedObject).append("\", \"").append(entry.getValue().metric).append("\", \"\", nil,\r\n")
-                    .append("    func(rs *sampling.RouteSpec, params map[string]interface{}) (sampling.Method, error) {\r\n")
-                    .append("      drv := &").append(entry.getValue().implName).append("{}\r\n")
-                    .append("      return drv, drv.Init(rs, params)\r\n")
-                    .append("    })\r\n");
+                        .append("    func(rs *sampling.RouteSpec, params map[string]interface{}) (sampling.Method, error) {\r\n")
+                        .append("      drv := &").append(entry.getValue().implName).append("{}\r\n")
+                        .append("      return drv, drv.Init(rs, params)\r\n")
+                        .append("    })\r\n");
             }
             srcWriter.append("}\r\n\r\n");
 
 
-            String moduleName = toGoName(module);
             srcWriter.append("var ").append(moduleName).append(" = []MibModule{\r\n");
             for(Map.Entry<String, MetricSpec> entry : tables.entrySet()) {
                 srcWriter.append("  {Name: \"").append(entry.getKey()).append("\", IsArray: ")
@@ -775,8 +797,10 @@ class GeneratorImpl implements Generator {
             srcWriter.append("}\r\n");
         }
 
-        metaWriter.append("</metricDefinitions>");
-        metaWriter.close();
+        if(null != metaWriter) {
+            metaWriter.append("</metricDefinitions>");
+            metaWriter.close();
+        }
         srcWriter.close();
     }
 
