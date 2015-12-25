@@ -699,8 +699,9 @@ class GeneratorImpl implements Generator {
                 if(constraint instanceof SizeConstraint) {
                     SizeConstraint size = (SizeConstraint) constraint;
                     if(null != size.getValues() && size.getValues().size() == 1) {
-                        if( !(size.getValues().get(0) instanceof ValueRangeConstraint)) {
-                            return String.format("SnmpGetFixedOctetStringWith(params, %s, %s,%s, \"%s\", \"\")", varName, oid, size, displayHint);
+                        if( size.getValues().get(0) instanceof ValueConstraint) {
+                            ValueConstraint valueConstraint = (ValueConstraint)size.getValues().get(0);
+                            return String.format("SnmpGetFixedOctetStringWith(params, %s, %s, %s, \"%s\", \"\")", varName, oid, valueConstraint.getValue().toObject(), displayHint);
                         }
                     }
                 }
