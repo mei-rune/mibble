@@ -46,13 +46,15 @@ public class Mib2Go {
         }
 
         String managedObject = "";
-        String cd = null;
+        String meta_out = null;
+        String src_out = null;
         String module = null;
         boolean is_managedObject = false;
         boolean is_module = false;
         boolean is_dir = false;
         boolean is_tables = false;
-        boolean is_cd = false;
+        boolean is_meta_out = false;
+        boolean is_src_out = false;
         boolean is_only_types = false;
         boolean not_registrer_metrics = false;
 
@@ -86,11 +88,16 @@ public class Mib2Go {
             } else if(is_managedObject){
                 managedObject = s;
                 is_managedObject = false;
-            } else if("-cd".equalsIgnoreCase(s)) {
-                is_cd = true;
-            } else if(is_cd){
-                cd = s;
-                is_cd = false;
+            } else if("-meta-out".equalsIgnoreCase(s)) {
+                is_meta_out = true;
+            } else if(is_meta_out){
+                meta_out = s;
+                is_meta_out = false;
+            } else if("-src-out".equalsIgnoreCase(s)) {
+                is_src_out = true;
+            } else if(is_src_out){
+                src_out = s;
+                is_src_out = false;
             } else {
                 is_tables = true;
                 tables.add(s);
@@ -159,12 +166,12 @@ public class Mib2Go {
             if (null != mib) {
                 Writer  metaWriter = null;
                 if (!not_registrer_metrics) {
-                    metaWriter = new OutputStreamWriter(new FileOutputStream(new File(cd, "meta\\metrics\\mib_" + mib.getName() + "-gen.xml")), "UTF-8");
+                    metaWriter = new OutputStreamWriter(new FileOutputStream(new File(meta_out, "mib_" + mib.getName() + "-gen.xml")), "UTF-8");
                 }
 
                 Generator generator = new GeneratorImpl(managedObject, mib.getName(),
                         metaWriter,
-                        new OutputStreamWriter(new FileOutputStream(new File(cd, "sampling\\metrics\\metric_mib_" + mib.getName() + "-gen-mib.go")),"UTF-8"),
+                        new OutputStreamWriter(new FileOutputStream(new File(src_out, "metric_mib_" + mib.getName() + "-gen-mib.go")),"UTF-8"),
                         is_only_types);
                 generateMib(mib, tables, generator);
                 generator.Close();
@@ -176,11 +183,11 @@ public class Mib2Go {
             for (Mib mib1 : mibs) {
                 Writer  metaWriter = null;
                 if (!not_registrer_metrics) {
-                    metaWriter = new OutputStreamWriter(new FileOutputStream(new File(cd, "meta\\metrics\\mib_" + mib1.getName() + "-gen.xml")),"UTF-8");
+                    metaWriter = new OutputStreamWriter(new FileOutputStream(new File(meta_out, "mib_" + mib1.getName() + "-gen.xml")),"UTF-8");
                 }
                 Generator generator = new GeneratorImpl(managedObject, mib1.getName(),
                         metaWriter,
-                        new OutputStreamWriter(new FileOutputStream(new File(cd, "sampling\\metrics\\metric_mib_" + mib1.getName() + "-gen-mib.go")),"UTF-8"),
+                        new OutputStreamWriter(new FileOutputStream(new File(src_out, "metric_mib_" + mib1.getName() + "-gen-mib.go")),"UTF-8"),
                         is_only_types);
                 generateMib(mib1, tables, generator);
                 generator.Close();
