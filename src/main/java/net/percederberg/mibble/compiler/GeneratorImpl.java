@@ -278,7 +278,7 @@ class GeneratorImpl implements Generator {
                 if( idxSymbol.getType() instanceof SnmpObjectType &&
                 ((SnmpObjectType) idxSymbol.getType()).getSyntax() instanceof StringType) {
                     srcWriter.append("      ").append(idxSymbol.getName()).
-                            append(", _, e := ").append(toGoReadMethod(idxSymbol, null, "toOidFromString(key)")).append("\r\n");
+                            append(", _, e := ").append(toGoReadMethod(idxSymbol, null, "ToOidFromString(key)")).append("\r\n");
 
                     srcWriter.append("      if nil != e {\r\n")
                             .append("        return nil, errors.New(\"failed to read ")
@@ -294,7 +294,7 @@ class GeneratorImpl implements Generator {
                 for (MibValueSymbol indexSym : indexSymbols) {
                     if(is_first) {
                         srcWriter.append("      ").append(indexSym.getName()).
-                                append(", next, e := ").append(toGoReadMethod(indexSym, null, "toOidFromString(key)")).append("\r\n");
+                                append(", next, e := ").append(toGoReadMethod(indexSym, null, "ToOidFromString(key)")).append("\r\n");
                         is_first = false;
                     } else {
                         if(isPreRead(indexSym)) {
