@@ -43,7 +43,6 @@ class GeneratorImpl implements Generator {
         "import (\r\n" +
                 "\t\"cn/com/hengwei/sampling\"\r\n" +
                 "\t. \"cn/com/hengwei/sampling/drivers/snmp\"\r\n" +
-                "\t\"cn/com/hengwei/sampling/metrics\"\r\n"+
                 "\t\"cn/com/hengwei/sampling/metrics\"\r\n" +
                 "\t\"errors\"\r\n" +
                 ")\r\n\r\n");
