@@ -38,7 +38,8 @@ class GeneratorImpl implements Generator {
         this.metaWriter = meta;
         this.srcWriter = src;
         this.is_only_types = is_only_types;
-        this.srcWriter.append("package ").append(namespace).append("\r\n\r\n"+
+        this.srcWriter.append("// 这是代码生成的文件，请不要修改它\r\n")
+                .append("package ").append(namespace).append("\r\n\r\n"+
         "import (\r\n" +
                 "\t\"cn/com/hengwei/sampling\"\r\n" +
                 "\t. \"cn/com/hengwei/sampling/drivers/snmp\"\r\n" +
@@ -49,6 +50,7 @@ class GeneratorImpl implements Generator {
 
         if(null != metaWriter) {
             this.metaWriter.append("<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\"?>\r\n")
+                    .append("<!-- 这是代码生成的文件，请不要修改它 -->\r\n")
                     .append("<metricDefinitions lastModified=\"")
                     .append(new SimpleDateFormat("yyyy-MM-dd'T'hh:mm:ss").format(new Date()))
                     .append("\"")
