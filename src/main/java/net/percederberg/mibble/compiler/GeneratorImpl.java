@@ -42,6 +42,7 @@ class GeneratorImpl implements Generator {
         "import (\r\n" +
                 "\t\"cn/com/hengwei/sampling\"\r\n" +
                 "\t. \"cn/com/hengwei/sampling/drivers/snmp\"\r\n" +
+                "\t\"cn/com/hengwei/sampling/metrics\"\r\n"+
                 "\t\"cn/com/hengwei/sampling/metrics\"\r\n" +
                 "\t\"errors\"\r\n" +
                 ")\r\n\r\n");
@@ -174,7 +175,7 @@ class GeneratorImpl implements Generator {
 
     public void GenerateGoTable(MibValueSymbol symbol, MibValueSymbol[] elementTypes) throws IOException {
         String name = symbol.getParent().getName();
-        srcWriter.append(String.format("type %s struct {\r\n  snmpBase\r\n}\r\n\n", name));
+        srcWriter.append(String.format("type %s struct {\r\n  metrics.SnmpBase\r\n}\r\n\n", name));
         srcWriter.append(String.format("func (self *%s) Call(params sampling.MContext) sampling.Result {\r\n", name));
 
         MibValue arguments = ((SnmpObjectType) symbol.getType()).getAugments();
@@ -817,7 +818,7 @@ class GeneratorImpl implements Generator {
             return;
         }
 
-        srcWriter.append(String.format("type %s struct {\r\n  snmpBase\r\n}\r\n\n", symbol.getName()));
+        srcWriter.append(String.format("type %s struct {\r\n  metrics.SnmpBase\r\n}\r\n\n", symbol.getName()));
         srcWriter.append(String.format("func (self *%s) Call(params sampling.MContext) sampling.Result {\r\n", symbol.getName()));
 
         srcWriter.append("  oids := []string{");
