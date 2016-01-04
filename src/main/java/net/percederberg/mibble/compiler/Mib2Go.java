@@ -49,6 +49,7 @@ public class Mib2Go {
         String meta_out = null;
         String src_out = null;
         String module = null;
+        String namespace = null;
         boolean is_managedObject = false;
         boolean is_module = false;
         boolean is_dir = false;
@@ -56,6 +57,7 @@ public class Mib2Go {
         boolean is_meta_out = false;
         boolean is_src_out = false;
         boolean is_only_types = false;
+        boolean is_namespace = false;
         boolean not_registrer_metrics = false;
 
         if(null == args || 0 == args.length) {
@@ -98,6 +100,11 @@ public class Mib2Go {
             } else if(is_src_out){
                 src_out = s;
                 is_src_out = false;
+            } else if("-ns".equalsIgnoreCase(s)) {
+                is_namespace = true;
+            } else if(is_namespace){
+                namespace = s;
+                is_namespace = false;
             } else {
                 is_tables = true;
                 tables.add(s);
@@ -169,7 +176,7 @@ public class Mib2Go {
                     metaWriter = new OutputStreamWriter(new FileOutputStream(new File(meta_out, "mib_" + mib.getName() + "-gen.xml")), "UTF-8");
                 }
 
-                Generator generator = new GeneratorImpl(managedObject, mib.getName(),
+                Generator generator = new GeneratorImpl(namespace, managedObject, mib.getName(),
                         metaWriter,
                         new OutputStreamWriter(new FileOutputStream(new File(src_out, "metric_mib_" + mib.getName() + "-gen-mib.go")),"UTF-8"),
                         is_only_types);
@@ -185,7 +192,7 @@ public class Mib2Go {
                 if (!not_registrer_metrics) {
                     metaWriter = new OutputStreamWriter(new FileOutputStream(new File(meta_out, "mib_" + mib1.getName() + "-gen.xml")),"UTF-8");
                 }
-                Generator generator = new GeneratorImpl(managedObject, mib1.getName(),
+                Generator generator = new GeneratorImpl(namespace, managedObject, mib1.getName(),
                         metaWriter,
                         new OutputStreamWriter(new FileOutputStream(new File(src_out, "metric_mib_" + mib1.getName() + "-gen-mib.go")),"UTF-8"),
                         is_only_types);

@@ -32,13 +32,19 @@ class GeneratorImpl implements Generator {
     boolean is_only_types;
 
 
-    public GeneratorImpl(String managedObject, String module, Writer meta, Writer src, boolean is_only_types) throws IOException {
+    public GeneratorImpl(String namespace, String managedObject, String module, Writer meta, Writer src, boolean is_only_types) throws IOException {
         this.managedObject = managedObject;
         this.module = module;
         this.metaWriter = meta;
         this.srcWriter = src;
         this.is_only_types = is_only_types;
-        this.srcWriter.append("package metrics\r\n\r\n");
+        this.srcWriter.append("package ").append(namespace).append("\r\n\r\n"+
+        "import (\r\n" +
+                "\t\"cn/com/hengwei/sampling\"\r\n" +
+                "\t. \"cn/com/hengwei/sampling/drivers/snmp\"\r\n" +
+                "\t\"cn/com/hengwei/sampling/metrics\"\r\n" +
+                "\t\"errors\"\r\n" +
+                ")\r\n\r\n");
 
         if(null != metaWriter) {
             this.metaWriter.append("<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\"?>\r\n")
