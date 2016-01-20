@@ -386,11 +386,15 @@ class GeneratorImpl implements Generator {
                     value.methodName, value.size, value.displayHint, value.value));
         } else if(null != value.displayHint && value.displayHint.isEmpty()) {
             srcWriter.append(String.format("  return SnmpGet%sWithDisplayHintAndDefaultValue(params, values, idx,  \"%s\", %s)\r\n", value.methodName, value.displayHint, value.value));
+        } else if ("Bits".equalsIgnoreCase(value.methodName)) {
+            srcWriter.append(String.format("  return SnmpGet%sWith(params, values, idx)\r\n", value.methodName, value.value));
         } else {
             srcWriter.append(String.format("  return SnmpGet%sWith(params, values, idx, %s)\r\n", value.methodName, value.value));
         }
         srcWriter.append("}\r\n");
-        if(!value.methodName.startsWith("Time")) {
+        if(!value.methodName.startsWith("Time") &&
+                !("Bits".equalsIgnoreCase(value.methodName)||
+                  "Uint64".equalsIgnoreCase(value.methodName))) {
             srcWriter.append("func SnmpRead").append(symbol.getName());
             srcWriter.append(String.format("FromOid(params sampling.MContext, oid []int) (%s, []int, error) {\r\n", value.name));
             if (null != value.size && !value.size.isEmpty()) {
