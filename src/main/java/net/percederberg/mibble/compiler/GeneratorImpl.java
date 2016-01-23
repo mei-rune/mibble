@@ -638,14 +638,14 @@ class GeneratorImpl implements Generator {
                 if ("TimeInterval".equalsIgnoreCase(symbol.getName())) {
                     return String.format("SnmpGetTimeIntervalWith(params, %s, %s, 0)", varName, oid);
                 }
-                if ("DateAndTime".equalsIgnoreCase(symbol.getName())) {
-                    return String.format("SnmpGetDateAndTimeWith(params, %s, %s, 0)", varName, oid);
-                }
                 if ("TruthValue".equalsIgnoreCase(symbol.getName())) {
                     return String.format("SnmpGetTruthValueWith(params, %s, %s, 0)", varName, oid);
                 }
                 if ("TestAndIncr".equalsIgnoreCase(symbol.getName())) {
                     return String.format("SnmpGetTestAndIncrWith(params, %s, %s, 0)", varName, oid);
+                }
+                if ("DateAndTime".equalsIgnoreCase(symbol.getName())) {
+                    return String.format("SnmpGetDateAndTimeWith(params, %s, %s, \"\")", varName, oid);
                 }
                 if ("MacAddress".equalsIgnoreCase(symbol.getName())) {
                     return String.format("SnmpGetMacAddressWith(params, %s, %s, \"\")", varName, oid);
