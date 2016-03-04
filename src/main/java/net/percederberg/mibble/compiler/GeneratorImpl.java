@@ -42,7 +42,7 @@ class GeneratorImpl implements Generator {
                 .append("package ").append(namespace).append("\r\n\r\n"+
         "import (\r\n" +
                 "\t\"cn/com/hengwei/sampling\"\r\n" +
-                "\t. \"cn/com/hengwei/sampling/drivers/snmp\"\r\n" +
+                "\t. \"cn/com/hengwei/sampling/drivers/snmp2\"\r\n" +
                 "\t\"cn/com/hengwei/sampling/metrics\"\r\n" +
                 "\t\"errors\"\r\n" +
                 ")\r\n\r\n");
