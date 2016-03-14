@@ -428,88 +428,124 @@ class GeneratorImpl implements Generator {
 
     private GoStringValue toGoType(SnmpTextualConvention type) {
         MibTypeSymbol symbol = type.getSyntax().getReferenceSymbol();
-        if( type.getSyntax() instanceof IntegerType) {
-            if(null != symbol) {
-                if ("Counter".equalsIgnoreCase(symbol.getName())) {
-                    return new GoStringValue("Uint", "uint", "0");
-                }
-                if ("Unsigned32".equalsIgnoreCase(symbol.getName())) {
-                    return new GoStringValue("Unsigned32", "uint32", "0");
-                }
-                if ("Counter32".equalsIgnoreCase(symbol.getName())) {
-                    return new GoStringValue("Uint", "uint", "0");
-                }
-                if ("Counter64".equalsIgnoreCase(symbol.getName())) {
-                    return new GoStringValue("Uint64", "uint64", "0");
-                }
-                if ("GAUGE32".equalsIgnoreCase(symbol.getName())) {
-                    return new GoStringValue("Gauge32", "uint32", "0");
-                }
-                if ("GAUGE".equalsIgnoreCase(symbol.getName())) {
-                    return new GoStringValue("Gauge32", "uint32", "0");
-                }
-                if ("Integer32".equalsIgnoreCase(symbol.getName())) {
-                    return new GoStringValue("Integer32", "int32", "0");
-                }
-                if ("TimeTicks".equalsIgnoreCase(symbol.getName())) {
-                    return new GoStringValue("TimeTicks", "time.Duration", "0");
-                }
-                if ("TimeInterval".equalsIgnoreCase(symbol.getName())) {
-                    return new GoStringValue("TimeInterval", "time.Duration", "0");
-                }
-                return new GoStringValue(symbol.getName(), "int", "0");
+        return toGoType(type, symbol);
+    }
+
+    private GoStringValue toGoType(SnmpTextualConvention type, MibTypeSymbol symbol) {
+        if(null != symbol) {
+            if ("Counter".equalsIgnoreCase(symbol.getName())) {
+                return new GoStringValue("Uint", "uint", "0");
             }
-            return new GoStringValue("Int", "int", "0");
-        } else if( type.getSyntax() instanceof StringType) {
-            if ("MacAddress".equalsIgnoreCase(type.getSyntax().getName())) {
+            if ("Unsigned32".equalsIgnoreCase(symbol.getName())) {
+                return new GoStringValue("Unsigned32", "uint32", "0");
+            }
+            if ("Counter32".equalsIgnoreCase(symbol.getName())) {
+                return new GoStringValue("Uint", "uint", "0");
+            }
+            if ("Counter64".equalsIgnoreCase(symbol.getName())) {
+                return new GoStringValue("Uint64", "uint64", "0");
+            }
+            if ("GAUGE32".equalsIgnoreCase(symbol.getName())) {
+                return new GoStringValue("Gauge32", "uint32", "0");
+            }
+            if ("GAUGE".equalsIgnoreCase(symbol.getName())) {
+                return new GoStringValue("Gauge32", "uint32", "0");
+            }
+            if ("Integer32".equalsIgnoreCase(symbol.getName())) {
+                return new GoStringValue("Integer32", "int32", "0");
+            }
+            if ("TimeTicks".equalsIgnoreCase(symbol.getName())) {
+                return new GoStringValue("TimeTicks", "time.Duration", "0");
+            }
+            if ("TimeInterval".equalsIgnoreCase(symbol.getName())) {
+                return new GoStringValue("TimeInterval", "time.Duration", "0");
+            }
+
+            if ("MacAddress".equalsIgnoreCase(symbol.getName())) {
                 return new GoStringValue("MacAddress", "string", "\"\"");
             }
-            if ("PhysAddress".equalsIgnoreCase(type.getSyntax().getName())) {
+            if ("PhysAddress".equalsIgnoreCase(symbol.getName())) {
                 return new GoStringValue("PhysAddress", "string", "\"\"");
             }
-            if ("IpAddress".equalsIgnoreCase(type.getSyntax().getName())) {
+            if ("IpAddress".equalsIgnoreCase(symbol.getName())) {
                 return new GoStringValue("IpAddress", "string", "\"\"");
             }
-            if ("SnmpAdminString".equalsIgnoreCase(type.getSyntax().getName())) {
+            if ("SnmpAdminString".equalsIgnoreCase(symbol.getName())) {
                 return new GoStringValue("SnmpAdminString", "string", "\"\"");
             }
-            if ("OwnerString".equalsIgnoreCase(type.getSyntax().getName())) {
+            if ("OwnerString".equalsIgnoreCase(symbol.getName())) {
                 return new GoStringValue("OwnerString", "string", "\"\"");
             }
-            if ("DisplayString".equalsIgnoreCase(type.getSyntax().getName())) {
+            if ("DisplayString".equalsIgnoreCase(symbol.getName())) {
                 return new GoStringValue("DisplayString", "string", "\"\"");
             }
 
             //noinspection Duplicates
-            if("OCTET STRING".equalsIgnoreCase(type.getSyntax().getName())) {
-                Constraint constraint = ((StringType) type.getSyntax()).getConstraint();
-                if(constraint instanceof SizeConstraint) {
+            if ("OCTET STRING".equalsIgnoreCase(symbol.getName())) {
+                Constraint constraint = ((StringType) symbol.getType()).getConstraint();
+                if (constraint instanceof SizeConstraint) {
                     SizeConstraint size = (SizeConstraint) constraint;
-                    if(null != size.getValues() && size.getValues().size() == 1 && !size.getValues().get(0).toString().contains("..")) {
-                        return new GoStringValue("OctetString", "string", "\"\"", type.getDisplayHint(), size.getValues().get(0).toString());
+                    if (null != size.getValues() && size.getValues().size() == 1 && !size.getValues().get(0).toString().contains("..")) {
+                        return new GoStringValue("OctetString", "string", "\"\"", getDisplayHint(type), size.getValues().get(0).toString());
                     }
                 }
-                return new GoStringValue("OctetString", "string", "\"\"", type.getDisplayHint(), null);
+                return new GoStringValue("OctetString", "string", "\"\"", getDisplayHint(type), null);
             }
             //noinspection Duplicates
-            if("Opaque".equalsIgnoreCase(type.getSyntax().getName())) {
-                Constraint constraint = ((StringType) type.getSyntax()).getConstraint();
-                if(constraint instanceof SizeConstraint) {
+            if ("Opaque".equalsIgnoreCase(symbol.getName())) {
+                Constraint constraint = ((StringType) symbol.getType()).getConstraint();
+                if (constraint instanceof SizeConstraint) {
                     SizeConstraint size = (SizeConstraint) constraint;
-                    if(null != size.getValues() && size.getValues().size() == 1 && !size.getValues().get(0).toString().contains("..")) {
-                        return new GoStringValue("OpaqueString", "string", "\"\"", type.getDisplayHint(), size.getValues().get(0).toString());
+                    if (null != size.getValues() && size.getValues().size() == 1 && !size.getValues().get(0).toString().contains("..")) {
+                        return new GoStringValue("OpaqueString", "string", "\"\"", getDisplayHint(type), size.getValues().get(0).toString());
                     }
                 }
-                return new GoStringValue("OpaqueString", "string", "\"\"", type.getDisplayHint(), null);
+                return new GoStringValue("OpaqueString", "string", "\"\"", getDisplayHint(type), null);
             }
+
+            MibType typeSyntex = symbol.getType();
+            if( typeSyntex instanceof IntegerType) {
+                return new GoStringValue(symbol.getName(), "int", "0");
+            } else if( typeSyntex instanceof StringType) {
+                return new GoStringValue(symbol.getName(), "string", "0");
+            } else if( typeSyntex instanceof BitSetType) {
+                return new GoStringValue(symbol.getName(), "string", "0");
+            } else if( typeSyntex instanceof ObjectIdentifierType) {
+                return new GoStringValue(symbol.getName(), "string", "0");
+            } else  {
+                GoStringValue x = toGoType(typeSyntex);
+                if (x != null) return x;
+            }
+        }
+
+        if(null != type ) {
+            MibType typeSyntex = type.getSyntax();
+            GoStringValue x = toGoType(typeSyntex);
+            if (x != null) return x;
+            throw new RuntimeException(type.toString() + "is unsupported.");
+        } else {
+            throw new RuntimeException(symbol.toString() + "is unsupported.");
+        }
+    }
+
+    private String getDisplayHint(SnmpTextualConvention type) {
+        if(null == type) return null;
+        return type.getDisplayHint();
+    }
+
+    private GoStringValue toGoType(MibType typeSyntex) {
+        if (typeSyntex instanceof IntegerType) {
+            return new GoStringValue("Int", "int", "0");
+        } else if (typeSyntex instanceof StringType) {
             return new GoStringValue("String", "string", "\"\"");
-        } else if( type.getSyntax() instanceof BitSetType) {
+        } else if (typeSyntex instanceof BitSetType) {
             return new GoStringValue("Bits", "string", "\"\"");
-        } else if( type.getSyntax() instanceof ObjectIdentifierType) {
+        } else if (typeSyntex instanceof ObjectIdentifierType) {
             return new GoStringValue("Oid", "string", "\"\"");
         }
-        throw new RuntimeException(type.toString() + "is unsupported.");
+        return null;
     }
+
 
     private String toGoMethod(MibValueSymbol el, MibValueSymbol prev_el) {
         return toGoMethod(el, prev_el, "old_row", "\"" + Integer.toString(((ObjectIdentifierValue) el.getValue()).getValue())+ "\"");
@@ -733,8 +769,11 @@ class GeneratorImpl implements Generator {
 
     @SuppressWarnings("Duplicates")
     private String toGoReadMethod(MibValueSymbol el, MibValueSymbol prev_el, String varName) {
-        if(el.getType() instanceof SnmpObjectType) {
-            SnmpObjectType objectType = (SnmpObjectType) el.getType();
+        return toGoReadMethod(el.getType(), prev_el, varName);
+    }
+        private String toGoReadMethod(MibType type, MibValueSymbol prev_el, String varName) {
+        if(type instanceof SnmpObjectType) {
+            SnmpObjectType objectType = (SnmpObjectType) type;
             MibTypeSymbol symbol = objectType.getSyntax().getReferenceSymbol();
             if(null != symbol) {
                 if ("Counter".equalsIgnoreCase(symbol.getName())) {
@@ -758,7 +797,17 @@ class GeneratorImpl implements Generator {
                 if ("InetAddress".equalsIgnoreCase(symbol.getName())) {
                     return String.format("SnmpReadInetAddressFromOid(params, %s, %s)", varName, prev_el.getName());
                 }
-                return String.format("SnmpRead%sFromOid(params, %s)", symbol.getName(), varName);
+                if(symbol.getType() instanceof SnmpTextualConvention) {
+                    return String.format("SnmpRead%sFromOid(params, %s)", symbol.getName(), varName);
+                } else if(symbol.getType() instanceof TypeReference) {
+                    MibTypeSymbol typeSymbol =(MibTypeSymbol) ((TypeReference)symbol.getType()).getSymbol();
+                    return toGoReadMethod(typeSymbol.getType(), prev_el, varName);
+                } else {
+                    GoStringValue typeName = toGoType(symbol.getType());
+                    if(null != typeName) {
+                        return String.format("SnmpRead%sFromOid(params, %s)", typeName.methodName, varName);
+                    }
+                }
             }
 
             if( objectType.getSyntax() instanceof IntegerType) {
@@ -771,7 +820,7 @@ class GeneratorImpl implements Generator {
                 return String.format("SnmpReadOidFromOid(params, %s)", varName);
             }
         }
-        throw new RuntimeException(el.getType().toString() + "is unsupported.");
+        throw new RuntimeException(type.toString() + "is unsupported.");
     }
 
     @Override
