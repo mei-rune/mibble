@@ -10,9 +10,18 @@ import net.percederberg.mibble.snmp.SnmpTextualConvention;
 import net.percederberg.mibble.snmp.SnmpType;
 import net.percederberg.mibble.type.*;
 import net.percederberg.mibble.value.ObjectIdentifierValue;
+import org.w3c.dom.Document;
+import org.w3c.dom.Node;
+import org.xml.sax.SAXException;
 
-import java.io.IOException;
-import java.io.Writer;
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.parsers.ParserConfigurationException;
+import javax.xml.xpath.XPath;
+import javax.xml.xpath.XPathConstants;
+import javax.xml.xpath.XPathExpressionException;
+import javax.xml.xpath.XPathFactory;
+import java.io.*;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
@@ -32,12 +41,14 @@ class GeneratorImpl implements Generator {
     boolean is_only_types;
 
 
-    public GeneratorImpl(String namespace, String managedObject, String module, Writer meta, Writer src, boolean is_only_types) throws IOException {
+    public GeneratorImpl(String namespace, String managedObject, String module, File metaFile, File srcFile, boolean is_only_types) throws IOException, ParserConfigurationException, SAXException, XPathExpressionException {
         this.managedObject = managedObject;
         this.module = module;
-        this.metaWriter = meta;
-        this.srcWriter = src;
+        //this.metaWriter = meta;
+        //this.srcWriter = src;
         this.is_only_types = is_only_types;
+
+        this.srcWriter = new OutputStreamWriter(new FileOutputStream(srcFile), "UTF-8");
         this.srcWriter.append("// 这是代码生成的文件，请不要修改它\r\n")
                 .append("package ").append(namespace).append("\r\n\r\n"+
         "import (\r\n" +
@@ -47,11 +58,32 @@ class GeneratorImpl implements Generator {
                 "\t\"errors\"\r\n" +
                 ")\r\n\r\n");
 
-        if(null != metaWriter) {
+        if(null != metaFile) {
+            String timeStr = null;
+            if(metaFile.exists()) {
+                FileInputStream in = new FileInputStream(metaFile);
+                try {
+                    DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
+                    dbf.setValidating(false);
+                    DocumentBuilder db = dbf.newDocumentBuilder();
+                    Document doc = db.parse(in);
+                    XPathFactory factory = XPathFactory.newInstance();
+                    XPath xpath = factory.newXPath();
+                    timeStr = (String) xpath.evaluate("/metricDefinitions/@lastModified", doc, XPathConstants.STRING);
+                } catch (Exception e) {
+                    /** ignore **/
+                } finally {
+                    in.close();
+                }
+            }
+            if(null == timeStr) {
+                timeStr = new SimpleDateFormat("yyyy-MM-dd'T'hh:mm:ss").format(new Date());
+            }
+            this.metaWriter = new OutputStreamWriter(new FileOutputStream(metaFile), "UTF-8");
             this.metaWriter.append("<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\"?>\r\n")
                     .append("<!-- 这是代码生成的文件，请不要修改它 -->\r\n")
                     .append("<metricDefinitions lastModified=\"")
-                    .append(new SimpleDateFormat("yyyy-MM-dd'T'hh:mm:ss").format(new Date()))
+                    .append(timeStr)
                     .append("\"")
                     .append(" class=\"").append(managedObject).append("\"\r\n")
                     .append("   xmlns=\"http://schemas.hengwei.com.cn/tpt/1/metricDefinitions\"")
@@ -300,14 +332,15 @@ class GeneratorImpl implements Generator {
                 boolean is_first = true;
                 MibValueSymbol prev_el = null;
                 for (MibValueSymbol indexSym : indexSymbols) {
+                    if(isPreRead(indexSym)) {
+                        prev_el = indexSym;
+                    }
+
                     if(is_first) {
                         srcWriter.append("      ").append(indexSym.getName()).
                                 append(", next, e := ").append(toGoReadMethod(indexSym, null, "ToOidFromString(key)")).append("\r\n");
                         is_first = false;
                     } else {
-                        if(isPreRead(indexSym)) {
-                            prev_el = indexSym;
-                        }
                         srcWriter.append("      ").append(indexSym.getName()).
                                 append(", next, e := ").append(toGoReadMethod(indexSym, prev_el, "next")).append("\r\n");
                     }
@@ -537,7 +570,7 @@ class GeneratorImpl implements Generator {
         if (typeSyntex instanceof IntegerType) {
             return new GoStringValue("Int", "int", "0");
         } else if (typeSyntex instanceof StringType) {
-            return new GoStringValue("String", "string", "\"\"");
+            return new GoStringValue("OctetString", "string", "\"\"");
         } else if (typeSyntex instanceof BitSetType) {
             return new GoStringValue("Bits", "string", "\"\"");
         } else if (typeSyntex instanceof ObjectIdentifierType) {
@@ -638,7 +671,6 @@ class GeneratorImpl implements Generator {
     private String toGoMethod(MibValueSymbol el, MibValueSymbol prev_el, String varName, String oid) {
         if(el.getType() instanceof SnmpObjectType) {
             SnmpObjectType objectType = (SnmpObjectType) el.getType();
-
             MibTypeSymbol symbol = objectType.getSyntax().getReferenceSymbol();
             if(null != symbol) {
                 if ("Counter".equalsIgnoreCase(symbol.getName())) {
@@ -718,18 +750,20 @@ class GeneratorImpl implements Generator {
                     }
                 }
                 if ("OCTET STRING".equalsIgnoreCase(symbol.getName())) {
-
-//                    Constraint constraint = ((StringType) objectType.getSyntax()).getConstraint();
-//                    if(constraint instanceof SizeConstraint) {
-//                        SizeConstraint size = (SizeConstraint) constraint;
-//                        if(null != size.getValues() && size.getValues().size() == 1) {
-//                            return new GoStringValue("SnmpGetFixedOctetStringWith", "string", "\"\"", displayHint, size.getValues().get(0).toString());
-//                        }
-//                    }
-//
-//                    if(null != displayHint && !displayHint.isEmpty()) {
-//                        return String.format("SnmpGetOctetStringWith(params, %s, %s, \"\")", varName, oid);
-//                    }
+                    String displayHint= null;
+                    Constraint constraint = ((StringType) symbol.getType()).getConstraint();
+                    if(constraint instanceof SizeConstraint) {
+                        SizeConstraint size = (SizeConstraint) constraint;
+                        if(null != size.getValues() && size.getValues().size() == 1) {
+                            if( size.getValues().get(0) instanceof ValueConstraint) {
+                                ValueConstraint valueConstraint = (ValueConstraint)size.getValues().get(0);
+                                return String.format("SnmpGetFixedOctetStringWith(params, %s, %s, %s, \"%s\", \"\")", varName, oid, valueConstraint.getValue().toObject(), displayHint);
+                            }
+                        }
+                    }
+                    if(null != displayHint && !displayHint.isEmpty()) {
+                        return String.format("SnmpGetOctetStringWithDisplayHintAndDefaultValue(params, %s, %s, %s, \"%s\", \"\")", varName, oid, displayHint);
+                    }
                     return String.format("SnmpGetOctetStringWith(params, %s, %s, \"\")", varName, oid);
                 }
                 if ("Opaque".equalsIgnoreCase(symbol.getName())) {
@@ -741,7 +775,6 @@ class GeneratorImpl implements Generator {
             if( objectType.getSyntax() instanceof IntegerType) {
                 return String.format("SnmpGetIntWith(params, %s, %s, 0)", varName, oid);
             } else if( objectType.getSyntax() instanceof StringType) {
-
                 String displayHint= null;
                 Constraint constraint = ((StringType) objectType.getSyntax()).getConstraint();
                 if(constraint instanceof SizeConstraint) {
@@ -756,9 +789,10 @@ class GeneratorImpl implements Generator {
                 if(null != displayHint && !displayHint.isEmpty()) {
                     return String.format("SnmpGetOctetStringWithDisplayHintAndDefaultValue(params, %s, %s, %s, \"%s\", \"\")", varName, oid, displayHint);
                 }
-                return String.format("SnmpGetStringWith(params, %s, %s, \"\")", varName, oid);
+
+                return String.format("SnmpGetOctetStringWith(params, %s, %s, \"\")", varName, oid);
             } else if( objectType.getSyntax() instanceof BitSetType) {
-                return String.format("SnmpGetStringWith(params, %s, %s, \"\")", varName, oid);
+                return String.format("SnmpGetBitStringWith(params, %s, %s, \"\")", varName, oid);
             } else if( objectType.getSyntax() instanceof ObjectIdentifierType) {
                 return String.format("SnmpGetOidWith(params, %s, %s, \"\")", varName, oid);
             }
@@ -771,7 +805,8 @@ class GeneratorImpl implements Generator {
     private String toGoReadMethod(MibValueSymbol el, MibValueSymbol prev_el, String varName) {
         return toGoReadMethod(el.getType(), prev_el, varName);
     }
-        private String toGoReadMethod(MibType type, MibValueSymbol prev_el, String varName) {
+
+    private String toGoReadMethod(MibType type, MibValueSymbol prev_el, String varName) {
         if(type instanceof SnmpObjectType) {
             SnmpObjectType objectType = (SnmpObjectType) type;
             MibTypeSymbol symbol = objectType.getSyntax().getReferenceSymbol();

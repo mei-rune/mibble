@@ -6,7 +6,10 @@ import net.percederberg.mibble.snmp.SnmpTextualConvention;
 import net.percederberg.mibble.type.ObjectIdentifierType;
 import net.percederberg.mibble.type.SequenceOfType;
 import net.percederberg.mibble.type.SequenceType;
+import org.xml.sax.SAXException;
 
+import javax.xml.parsers.ParserConfigurationException;
+import javax.xml.xpath.XPathExpressionException;
 import java.io.*;
 import java.util.ArrayList;
 import java.util.List;
@@ -35,7 +38,7 @@ public class Mib2Go {
             ".."+ File.separator +"commons",
             ".."+ File.separator +"common"};
 
-    public static void main(String[] args) throws IOException {
+    public static void main(String[] args) throws IOException, XPathExpressionException, SAXException, ParserConfigurationException {
         ArrayList<String> dirs = new ArrayList<String>();
         ArrayList<String> tables  = new ArrayList<String>();
         File standardmibs = new File("D:\\mibs\\StandardMibs");
@@ -171,14 +174,15 @@ public class Mib2Go {
         {
             Mib mib = loader.getMib(module);
             if (null != mib) {
-                Writer  metaWriter = null;
+                File  metaFile = null;
                 if (!not_registrer_metrics) {
-                    metaWriter = new OutputStreamWriter(new FileOutputStream(new File(meta_out, "mib_" + mib.getName() + "-gen.xml")), "UTF-8");
+                    metaFile =new File(meta_out, "mib_" + mib.getName() + "-gen.xml");
+                    // metaWriter = new OutputStreamWriter(new FileOutputStream(xmlFile), "UTF-8");
                 }
 
                 Generator generator = new GeneratorImpl(namespace, managedObject, mib.getName(),
-                        metaWriter,
-                        new OutputStreamWriter(new FileOutputStream(new File(src_out, "metric_mib_" + mib.getName() + "-gen-mib.go")),"UTF-8"),
+                        metaFile,
+                        new File(src_out, "metric_mib_" + mib.getName() + "-gen-mib.go"),
                         is_only_types);
                 generateMib(mib, tables, generator);
                 generator.Close();
@@ -188,13 +192,13 @@ public class Mib2Go {
         mibs = loader.getMib(new File(module));
         if(null != mibs) {
             for (Mib mib1 : mibs) {
-                Writer  metaWriter = null;
+                File  metaFile = null;
                 if (!not_registrer_metrics) {
-                    metaWriter = new OutputStreamWriter(new FileOutputStream(new File(meta_out, "mib_" + mib1.getName() + "-gen.xml")),"UTF-8");
+                    metaFile =new File(meta_out, "mib_" + mib1.getName() + "-gen.xml");
                 }
                 Generator generator = new GeneratorImpl(namespace, managedObject, mib1.getName(),
-                        metaWriter,
-                        new OutputStreamWriter(new FileOutputStream(new File(src_out, "metric_mib_" + mib1.getName() + "-gen-mib.go")),"UTF-8"),
+                        metaFile,
+                        new File(src_out, "metric_mib_" + mib1.getName() + "-gen-mib.go"),
                         is_only_types);
                 generateMib(mib1, tables, generator);
                 generator.Close();
