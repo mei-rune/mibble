@@ -358,6 +358,9 @@ class GeneratorImpl implements Generator {
             if (!((SnmpObjectType) el.getType()).getAccess().canRead()) {
                 continue;
             }
+            if(findInIndexs(indexSymbols, el)) {
+                continue;
+            }
             if(isPreRead(el)) {
                 srcWriter.append(String.format("      %s := %s\r\n", el.getName(), toGoMethod(el, null)));
             }
@@ -371,14 +374,12 @@ class GeneratorImpl implements Generator {
         }
         MibValueSymbol prev_el = null;
         for (MibValueSymbol el : elementTypes) {
-            boolean found = false;
-            for (MibValueSymbol indexSym : indexSymbols) {
-                if (indexSym.equals(el)) {
-                    found = true;
-                    break;
-                }
+            boolean preRead =  isPreRead(el);
+            if(preRead) {
+                prev_el = el;
             }
 
+            boolean found = findInIndexs(indexSymbols, el);
             if (!((SnmpObjectType) el.getType()).getAccess().canRead()) {
                 if (!found) {
                     srcWriter.append(String.format("        //%s can't read.\r\n", el.getName()));
@@ -392,15 +393,24 @@ class GeneratorImpl implements Generator {
             if (found) {
                 continue;
             }
-            if(isPreRead(el)) {
+
+            if(preRead) {
                 srcWriter.append(String.format("        \"%s\":         %s,\r\n", el.getName(), el.getName()));
-                prev_el = el;
             } else {
                 srcWriter.append(String.format("        \"%s\":         %s,\r\n", el.getName(), toGoMethod(el, prev_el)));
             }
         }
         srcWriter.append("    }, nil\r\n");
         srcWriter.append("  })\r\n");
+    }
+
+    private boolean findInIndexs(ArrayList<MibValueSymbol> indexSymbols, MibValueSymbol el) {
+        for (MibValueSymbol indexSym : indexSymbols) {
+            if (indexSym.equals(el)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     @Override
