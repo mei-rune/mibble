@@ -839,9 +839,22 @@ class GeneratorImpl implements Generator {
                 if ("GAUGE".equalsIgnoreCase(symbol.getName())) {
                     return String.format("SnmpReadGauge32FromOid(params, %s)", varName);
                 }
+//                if ("AutonomousType".equalsIgnoreCase(symbol.getName())) {
+//                    return String.format("SnmpReadAutonomousTypeWith(params, %s)", varName);
+//                }
+//                if ("InstancePointer".equalsIgnoreCase(symbol.getName())) {
+//                    return String.format("SnmpReadInstancePointerWith(params, %s)", varName);
+//                }
+//                if ("RowPointer".equalsIgnoreCase(symbol.getName())) {
+//                    return String.format("SnmpReadRowPointerWith(params, %s)", varName);
+//                }
                 if ("InetAddress".equalsIgnoreCase(symbol.getName())) {
                     return String.format("SnmpReadInetAddressFromOid(params, %s, %s)", varName, prev_el.getName());
                 }
+                if ("IpAddress".equalsIgnoreCase(symbol.getName())) {
+                    return String.format("SnmpReadIpAddressFromOid(params, %s, \"\")", varName);
+                }
+
                 if(symbol.getType() instanceof SnmpTextualConvention) {
                     return String.format("SnmpRead%sFromOid(params, %s)", symbol.getName(), varName);
                 } else if(symbol.getType() instanceof TypeReference) {
