@@ -1,6 +1,7 @@
 package net.percederberg.mibble.compiler;
 
 import net.percederberg.mibble.*;
+import net.percederberg.mibble.snmp.SnmpModuleIdentity;
 import net.percederberg.mibble.snmp.SnmpObjectType;
 import net.percederberg.mibble.snmp.SnmpTextualConvention;
 import net.percederberg.mibble.type.ObjectIdentifierType;
@@ -53,6 +54,7 @@ public class Mib2Go {
         String src_out = null;
         String module = null;
         String namespace = null;
+        String manufacturer = null;
         boolean is_managedObject = false;
         boolean is_module = false;
         boolean is_dir = false;
@@ -61,6 +63,7 @@ public class Mib2Go {
         boolean is_src_out = false;
         boolean is_only_types = false;
         boolean is_namespace = false;
+        boolean is_manufacturer = false;
         boolean not_registrer_metrics = false;
 
         if(null == args || 0 == args.length) {
@@ -103,6 +106,11 @@ public class Mib2Go {
             } else if(is_src_out){
                 src_out = s;
                 is_src_out = false;
+            } else if("-manufacturer".equalsIgnoreCase(s)) {
+                is_manufacturer = true;
+            } else if(is_manufacturer){
+                manufacturer = s;
+                is_manufacturer = false;
             } else if("-ns".equalsIgnoreCase(s)) {
                 is_namespace = true;
             } else if(is_namespace){
@@ -184,6 +192,7 @@ public class Mib2Go {
                         metaFile,
                         new File(src_out, "metric_mib_" + mib.getName() + "-gen-mib.go"),
                         is_only_types);
+                generator.setManufacturer(manufacturer);
                 generateMib(mib, tables, generator);
                 generator.Close();
                 return;
@@ -200,6 +209,7 @@ public class Mib2Go {
                         metaFile,
                         new File(src_out, "metric_mib_" + mib1.getName() + "-gen-mib.go"),
                         is_only_types);
+                generator.setManufacturer(manufacturer);
                 generateMib(mib1, tables, generator);
                 generator.Close();
             }
@@ -250,7 +260,8 @@ public class Mib2Go {
         }
 
         MibValueSymbol parent = valueSymbol.getParent();
-        if(!(parent.getType() instanceof ObjectIdentifierType)) {
+        if(!(parent.getType() instanceof ObjectIdentifierType) &&
+                !(parent.getType() instanceof SnmpModuleIdentity)){
             return;
         }
         generator.GenerateGoObject(valueSymbol, valueSymbol.getChildren());

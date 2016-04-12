@@ -11,7 +11,6 @@ import net.percederberg.mibble.snmp.SnmpType;
 import net.percederberg.mibble.type.*;
 import net.percederberg.mibble.value.ObjectIdentifierValue;
 import org.w3c.dom.Document;
-import org.w3c.dom.Node;
 import org.xml.sax.SAXException;
 
 import javax.xml.parsers.DocumentBuilder;
@@ -39,7 +38,7 @@ class GeneratorImpl implements Generator {
     String module;
     Map<String, MibValueSymbol> groups = new HashMap<>();
     boolean is_only_types;
-
+    private String manufacturer;
 
     public GeneratorImpl(String namespace, String managedObject, String module, File metaFile, File srcFile, boolean is_only_types) throws IOException, ParserConfigurationException, SAXException, XPathExpressionException {
         this.managedObject = managedObject;
@@ -92,6 +91,11 @@ class GeneratorImpl implements Generator {
         }
     }
 
+    public Generator setManufacturer(String manufacturer) {
+        this.manufacturer = manufacturer;
+        return this;
+    }
+
     public void GenerateMetaTable(MibValueSymbol symbol, MibValueSymbol[] elementTypes) throws IOException {
         if(null == metaWriter) {
             return;
@@ -116,12 +120,19 @@ class GeneratorImpl implements Generator {
         metaWriter.append("    </class>\r\n");
 
         if(null != arguments ) {
+            String dataSource =  ((ObjectIdentifierValue) arguments).getSymbol().getParent().getName();
             metaWriter.append("    <arguments>\r\n" +
                     "      <argument name=\"key\" type=\"string\">\r\n" +
                     "        <label lang=\"zh-cn\">索引</label>\r\n" +
                     "        <required/>\r\n" +
+                    "        <dataSource>"+ dataSource + "</dataSource>\r\n" +
                     "      </argument>\r\n" +
                     "    </arguments>\r\n");
+        }
+        if(null != this.manufacturer && !this.manufacturer.trim().isEmpty()) {
+            metaWriter.append("    <filters>\r\n");
+            metaWriter.append("      <filter type=\"manufacturer\">").append(this.manufacturer).append("</filter>\r\n");
+            metaWriter.append("    </filters>\r\n");
         }
         metaWriter.append("  </metric>\r\n");
         metaWriter.flush();
@@ -840,13 +851,13 @@ class GeneratorImpl implements Generator {
                     return String.format("SnmpReadGauge32FromOid(params, %s)", varName);
                 }
                 if ("AutonomousType".equalsIgnoreCase(symbol.getName())) {
-                    return String.format("SnmpReadAutonomousTypeWith(params, %s)", varName);
+                    return String.format("SnmpReadAutonomousTypeFromOid(params, %s)", varName);
                 }
                 if ("InstancePointer".equalsIgnoreCase(symbol.getName())) {
-                    return String.format("SnmpReadInstancePointerWith(params, %s)", varName);
+                    return String.format("SnmpReadInstancePointerFromOid(params, %s)", varName);
                 }
                 if ("RowPointer".equalsIgnoreCase(symbol.getName())) {
-                    return String.format("SnmpReadRowPointerWith(params, %s)", varName);
+                    return String.format("SnmpReadRowPointerFromOid(params, %s)", varName);
                 }
                 if ("InetAddress".equalsIgnoreCase(symbol.getName())) {
                     return String.format("SnmpReadInetAddressFromOid(params, %s, %s)", varName, prev_el.getName());
@@ -900,8 +911,13 @@ class GeneratorImpl implements Generator {
 
             for (Map.Entry<String, MetricSpec> entry : tables.entrySet()) {
                 srcWriter.append(" sampling.RegisterRouteSpec(\"").append(entry.getKey()).append("_default\", \"get\", \"")
-                        .append(this.managedObject).append("\", \"").append(entry.getValue().metric).append("\", \"\", nil,\r\n")
-                        .append("    func(rs *sampling.RouteSpec, params map[string]interface{}) (sampling.Method, error) {\r\n")
+                        .append(this.managedObject).append("\", \"").append(entry.getValue().metric).append("\", \"\", ");
+                if(null != this.manufacturer && !this.manufacturer.trim().isEmpty()) {
+                    srcWriter.append("sampling.Match().Oid(\"").append(this.manufacturer).append("\").Build(),\r\n");
+                } else {
+                    srcWriter.append("nil,\r\n");
+                }
+                srcWriter.append("    func(rs *sampling.RouteSpec, params map[string]interface{}) (sampling.Method, error) {\r\n")
                         .append("      drv := &").append(entry.getValue().implName).append("{}\r\n")
                         .append("      return drv, drv.Init(rs, params)\r\n")
                         .append("    })\r\n");
