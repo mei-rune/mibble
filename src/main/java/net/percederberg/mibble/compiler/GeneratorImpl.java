@@ -160,6 +160,11 @@ class GeneratorImpl implements Generator {
         metaWriter.append(String.format("    <class name=\"%s\">\r\n", symbol.getName()));
         generateChildrenMeta(children);
         metaWriter.append("    </class>\r\n");
+        if(null != this.manufacturer && !this.manufacturer.trim().isEmpty()) {
+            metaWriter.append("    <filters>\r\n");
+            metaWriter.append("      <filter type=\"manufacturer\">").append(this.manufacturer).append("</filter>\r\n");
+            metaWriter.append("    </filters>\r\n");
+        }
         metaWriter.append("  </metric>\r\n");
         metaWriter.flush();
     }
