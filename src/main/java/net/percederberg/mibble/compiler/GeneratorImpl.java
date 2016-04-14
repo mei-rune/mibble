@@ -170,7 +170,12 @@ class GeneratorImpl implements Generator {
             if(null != comment && comment.trim().isEmpty()) {
                 comment = null;
             }
-
+            if(el.getType() instanceof SnmpObjectType) {
+                SnmpObjectType ot = (SnmpObjectType) el.getType();
+                if (ot.getSyntax() instanceof SequenceOfType || ot.getSyntax() instanceof SequenceType) {
+                    continue;
+                }
+            }
             TypeValue metaType = toMetaType(el.getType());
             StringValue[] values = getEnum(el.getType());
             if(null == comment && (0 == values.length)) {
