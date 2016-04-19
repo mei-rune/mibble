@@ -795,6 +795,16 @@ class GeneratorImpl implements Generator {
                         return String.format("SnmpGetInetAddressWithType(params, %s, %s, %s)", varName, oid, prev_el.getName());
                     }
                 }
+                if ("TDomain".equalsIgnoreCase(symbol.getName())) {
+                    if(null == prev_el) {
+                        return String.format("SnmpGetTDomainWith(params, %s, %s, \"\", \"\")", varName, oid);
+                    } else {
+                        return String.format("SnmpGetTDomainWith(params, %s, %s, %s, \"\")", varName, oid, prev_el.getName());
+                    }
+                }
+                if ("TAddress".equalsIgnoreCase(symbol.getName())) {
+                    return String.format("SnmpGetTAddressWith(params, %s, %s, \"\")", varName, oid);
+                }
                 if ("OCTET STRING".equalsIgnoreCase(symbol.getName())) {
                     String displayHint= null;
                     Constraint constraint = ((StringType) symbol.getType()).getConstraint();
