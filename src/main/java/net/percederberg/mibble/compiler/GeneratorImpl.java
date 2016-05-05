@@ -435,12 +435,16 @@ class GeneratorImpl implements Generator {
     }
 
     @Override
-    public void GenerateGoType(MibTypeSymbol symbol, SnmpTextualConvention type) throws IOException {
-        if(null != type.getDescription() && !type.getDescription().trim().isEmpty()) {
-            String[] ss = type.getDescription().trim().split("\n");
-            for (String s : ss) {
-                srcWriter.append("// ").append(s.trim()).append("\r\n");
+    public void GenerateGoType(MibTypeSymbol symbol, MibType type) throws IOException {
+        if(type instanceof SnmpTextualConvention) {
+            SnmpTextualConvention tc = (SnmpTextualConvention)type;
+            if (null != tc.getDescription() && !tc.getDescription().trim().isEmpty()) {
+                String[] ss = tc.getDescription().trim().split("\n");
+                for (String s : ss) {
+                    srcWriter.append("// ").append(s.trim()).append("\r\n");
+                }
             }
+            type = tc.getSyntax();
         }
         srcWriter.append("func SnmpGet").append(symbol.getName());
         GoStringValue value = toGoType(type);
@@ -493,12 +497,20 @@ class GeneratorImpl implements Generator {
         }
     }
 
+    private String getDisplayHint(MibType type) {
+        if(null == type) return null;
+        if(type instanceof  SnmpTextualConvention) {
+            return ((SnmpTextualConvention)type).getDisplayHint();
+        }
+        return null;
+    }
+
     private GoStringValue toGoType(SnmpTextualConvention type) {
         MibTypeSymbol symbol = type.getSyntax().getReferenceSymbol();
         return toGoType(type, symbol);
     }
 
-    private GoStringValue toGoType(SnmpTextualConvention type, MibTypeSymbol symbol) {
+    private GoStringValue toGoType(MibType type, MibTypeSymbol symbol) {
         if(null != symbol) {
             if ("Counter".equalsIgnoreCase(symbol.getName())) {
                 return new GoStringValue("Uint", "uint", "0");
@@ -580,14 +592,17 @@ class GeneratorImpl implements Generator {
             } else if( typeSyntex instanceof ObjectIdentifierType) {
                 return new GoStringValue(symbol.getName(), "string", "0");
             } else  {
-                GoStringValue x = toGoType(typeSyntex);
+                GoStringValue x = toGoTypeWithReNullferenceSymbol(typeSyntex);
                 if (x != null) return x;
             }
         }
 
         if(null != type ) {
-            MibType typeSyntex = type.getSyntax();
-            GoStringValue x = toGoType(typeSyntex);
+            MibType typeSyntex = type;
+            if(type instanceof SnmpTextualConvention) {
+                typeSyntex = ((SnmpTextualConvention)type).getSyntax();
+            }
+            GoStringValue x = toGoTypeWithReNullferenceSymbol(typeSyntex);
             if (x != null) return x;
             throw new RuntimeException(type.toString() + "is unsupported.");
         } else {
@@ -595,12 +610,14 @@ class GeneratorImpl implements Generator {
         }
     }
 
-    private String getDisplayHint(SnmpTextualConvention type) {
-        if(null == type) return null;
-        return type.getDisplayHint();
+    private GoStringValue toGoType(MibType typeSyntex) {
+        if(typeSyntex.getReferenceSymbol() == null) {
+            return toGoTypeWithReNullferenceSymbol(typeSyntex);
+        }
+        return toGoType(typeSyntex, typeSyntex.getReferenceSymbol());
     }
 
-    private GoStringValue toGoType(MibType typeSyntex) {
+    private GoStringValue toGoTypeWithReNullferenceSymbol(MibType typeSyntex) {
         if (typeSyntex instanceof IntegerType) {
             return new GoStringValue("Int", "int", "0");
         } else if (typeSyntex instanceof StringType) {

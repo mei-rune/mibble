@@ -1,9 +1,8 @@
 package net.percederberg.mibble.compiler;
 
 import net.percederberg.mibble.*;
-import net.percederberg.mibble.snmp.SnmpModuleIdentity;
-import net.percederberg.mibble.snmp.SnmpObjectType;
-import net.percederberg.mibble.snmp.SnmpTextualConvention;
+import net.percederberg.mibble.snmp.*;
+import net.percederberg.mibble.type.NullType;
 import net.percederberg.mibble.type.ObjectIdentifierType;
 import net.percederberg.mibble.type.SequenceOfType;
 import net.percederberg.mibble.type.SequenceType;
@@ -231,10 +230,20 @@ public class Mib2Go {
         List<MibSymbol> symbols = mib.getAllSymbols();
         for(MibSymbol symbol : symbols) {
             if(symbol instanceof MibTypeSymbol) {
-                if(((MibTypeSymbol) symbol).getType() instanceof SnmpTextualConvention) {
-                    generator.GenerateGoType((MibTypeSymbol)symbol, (SnmpTextualConvention)((MibTypeSymbol) symbol).getType());
+                if((((MibTypeSymbol) symbol).getType() instanceof SequenceOfType) ||
+                        (((MibTypeSymbol) symbol).getType() instanceof SequenceType) ||
+                        (((MibTypeSymbol) symbol).getType() instanceof SnmpNotificationType) ||
+                        (((MibTypeSymbol) symbol).getType() instanceof SnmpNotificationGroup) ||
+                        (((MibTypeSymbol) symbol).getType() instanceof SnmpAgentCapabilities) ||
+                        (((MibTypeSymbol) symbol).getType() instanceof SnmpModuleCompliance) ||
+                        (((MibTypeSymbol) symbol).getType() instanceof SnmpTrapType) ||
+                        (((MibTypeSymbol) symbol).getType() instanceof NullType)) {
                     continue;
                 }
+                //if(((MibTypeSymbol) symbol).getType() instanceof SnmpTextualConvention) {
+                    generator.GenerateGoType((MibTypeSymbol)symbol, ((MibTypeSymbol) symbol).getType());
+                    continue;
+                //}
             }
             if(hasSymbol(tables, symbol)) {
                 generateTable(symbol, generator);
@@ -261,7 +270,8 @@ public class Mib2Go {
 
         MibValueSymbol parent = valueSymbol.getParent();
         if(!(parent.getType() instanceof ObjectIdentifierType) &&
-                !(parent.getType() instanceof SnmpModuleIdentity)){
+                !(parent.getType() instanceof SnmpModuleIdentity)&&
+                !(parent.getType() instanceof SnmpObjectIdentity)){
             return;
         }
         generator.GenerateGoObject(valueSymbol, valueSymbol.getChildren());
