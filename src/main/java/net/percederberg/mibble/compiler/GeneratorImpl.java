@@ -621,7 +621,7 @@ class GeneratorImpl implements Generator {
         if (typeSyntex instanceof IntegerType) {
             return new GoStringValue("Int", "int", "0");
         } else if (typeSyntex instanceof StringType) {
-            String displayHint = null;
+            String displayHint = getDisplayHint(typeSyntex);
             if(((StringType) typeSyntex).getConstraint() instanceof SizeConstraint) {
                 SizeConstraint sizeConstraint = (SizeConstraint)((StringType) typeSyntex).getConstraint();
                 if(sizeConstraint.getValues().size() == 1) {
@@ -823,7 +823,7 @@ class GeneratorImpl implements Generator {
                     return String.format("SnmpGetTAddressWith(params, %s, %s, \"\")", varName, oid);
                 }
                 if ("OCTET STRING".equalsIgnoreCase(symbol.getName())) {
-                    String displayHint= null;
+                    String displayHint= getDisplayHint(symbol.getType());
                     Constraint constraint = ((StringType) symbol.getType()).getConstraint();
                     if(constraint instanceof SizeConstraint) {
                         SizeConstraint size = (SizeConstraint) constraint;
@@ -848,7 +848,7 @@ class GeneratorImpl implements Generator {
             if( objectType.getSyntax() instanceof IntegerType) {
                 return String.format("SnmpGetIntWith(params, %s, %s, 0)", varName, oid);
             } else if( objectType.getSyntax() instanceof StringType) {
-                String displayHint= null;
+                String displayHint= getDisplayHint(objectType.getSyntax());
                 Constraint constraint = ((StringType) objectType.getSyntax()).getConstraint();
                 if(constraint instanceof SizeConstraint) {
                     SizeConstraint size = (SizeConstraint) constraint;
@@ -883,7 +883,7 @@ class GeneratorImpl implements Generator {
         if(type instanceof SnmpObjectType) {
             SnmpObjectType objectType = (SnmpObjectType) type;
             MibTypeSymbol symbol = objectType.getSyntax().getReferenceSymbol();
-            if(null != symbol) {
+            if (null != symbol) {
                 if ("Counter".equalsIgnoreCase(symbol.getName())) {
                     return String.format("SnmpReadtCounter32FromOid(params, %s)", varName);
                 }
@@ -951,7 +951,7 @@ class GeneratorImpl implements Generator {
                     return String.format("SnmpReadRowPointerFromOid(params, %s)", varName);
                 }
                 if ("InetAddress".equalsIgnoreCase(symbol.getName())) {
-                    if(null == prev_el) {
+                    if (null == prev_el) {
                         return String.format("SnmpReadInetAddressFromOid(params, %s, %s, -1)", varName);
                     } else {
                         return String.format("SnmpReadInetAddressFromOid(params, %s, %s)", varName, prev_el.getName());
@@ -961,7 +961,7 @@ class GeneratorImpl implements Generator {
                     return String.format("SnmpReadIpAddressFromOid(params, %s)", varName);
                 }
 
-                if(symbol.getType() instanceof SnmpTextualConvention) {
+                if (symbol.getType() instanceof SnmpTextualConvention) {
 
 //                    Constraint constraint = ((StringType) symbol.getType()).getConstraint();
 //                    if (constraint instanceof SizeConstraint) {
@@ -972,27 +972,52 @@ class GeneratorImpl implements Generator {
 //                    }
 
                     return String.format("SnmpRead%sFromOid(params, %s)", symbol.getName(), varName);
-                } else if(symbol.getType() instanceof TypeReference) {
-                    MibTypeSymbol typeSymbol =(MibTypeSymbol) ((TypeReference)symbol.getType()).getSymbol();
+                } else if (symbol.getType() instanceof TypeReference) {
+                    MibTypeSymbol typeSymbol = (MibTypeSymbol) ((TypeReference) symbol.getType()).getSymbol();
                     return toGoReadMethod(typeSymbol.getType(), prev_el, varName);
                 } else {
                     GoStringValue typeName = toGoType(symbol.getType());
-                    if(null != typeName) {
+                    if (null != typeName) {
                         return String.format("SnmpRead%sFromOid(params, %s)", typeName.methodName, varName);
                     }
                 }
             }
+            type = objectType.getSyntax();
+        }
 
-            if( objectType.getSyntax() instanceof IntegerType) {
-                return String.format("SnmpReadIntFromOid(params, %s)", varName);
-            } else if( objectType.getSyntax() instanceof StringType) {
-                return String.format("SnmpReadStringFromOid(params, %s)", varName);
-            } else if( objectType.getSyntax() instanceof BitSetType) {
-                return String.format("SnmpReadBitsFromOid(params, %s)", varName);
-            } else if( objectType.getSyntax() instanceof ObjectIdentifierType) {
-                return String.format("SnmpReadOidFromOid(params, %s)", varName);
+
+        if( type instanceof IntegerType) {
+            return String.format("SnmpReadIntFromOid(params, %s)", varName);
+        } else if( type instanceof StringType) {
+            if(((StringType) type).getConstraint() instanceof SizeConstraint) {
+                Constraint constraint = ((StringType) type).getConstraint();
+                if (constraint instanceof SizeConstraint) {
+                    SizeConstraint size = (SizeConstraint) constraint;
+                    if (null != size.getValues() && size.getValues().size() == 1 && !size.getValues().get(0).toString().contains("..")) {
+                        String displayHint = getDisplayHint(type);
+                        if(null == displayHint ||  displayHint.isEmpty()) {
+                            displayHint = "\"\"";
+                        } else {
+                            displayHint = "\""+ displayHint +"\"";
+                        }
+                        return String.format("SnmpReadFixedOctetStringFromOid(params, %s, %s, %s)\r\n",
+                                varName, size.getValues().get(0).toString(), displayHint);
+                    }
+                }
+            }
+            return String.format("SnmpReadOctetStringFromOid(params, %s)", varName);
+        } else if( type instanceof BitSetType) {
+            return String.format("SnmpReadBitsFromOid(params, %s)", varName);
+        } else if( type instanceof ObjectIdentifierType) {
+            return String.format("SnmpReadOidFromOid(params, %s)", varName);
+        } else if(type instanceof ChoiceType) {
+            ChoiceType choiceType = (ChoiceType)type;
+            if(((ChoiceType)type).getAllElements().length == 1) {
+                ElementType elementType = choiceType.getAllElements()[0];
+                return toGoReadMethod(elementType.getType(), null, varName);
             }
         }
+
         throw new RuntimeException(type.toString() + "is unsupported.");
     }
 
