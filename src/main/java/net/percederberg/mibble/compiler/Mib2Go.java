@@ -54,6 +54,7 @@ public class Mib2Go {
         String module = null;
         String namespace = null;
         String manufacturer = null;
+        String prefix = null;
         boolean is_managedObject = false;
         boolean is_module = false;
         boolean is_dir = false;
@@ -64,6 +65,7 @@ public class Mib2Go {
         boolean is_namespace = false;
         boolean is_manufacturer = false;
         boolean not_registrer_metrics = false;
+        boolean is_prefix = false;
 
         if(null == args || 0 == args.length) {
             usage();
@@ -110,6 +112,11 @@ public class Mib2Go {
             } else if(is_manufacturer){
                 manufacturer = s;
                 is_manufacturer = false;
+            } else if("-prefix".equalsIgnoreCase(s)) {
+                is_prefix = true;
+            } else if(is_prefix){
+                prefix = s;
+                is_prefix = false;
             } else if("-ns".equalsIgnoreCase(s)) {
                 is_namespace = true;
             } else if(is_namespace){
@@ -183,13 +190,13 @@ public class Mib2Go {
             if (null != mib) {
                 File  metaFile = null;
                 if (!not_registrer_metrics) {
-                    metaFile =new File(meta_out, "mib_" + mib.getName() + "-gen.xml");
+                    metaFile =new File(meta_out, "mib_" +  ((null == prefix)?"":prefix) + mib.getName() + "-gen.xml");
                     // metaWriter = new OutputStreamWriter(new FileOutputStream(xmlFile), "UTF-8");
                 }
 
-                Generator generator = new GeneratorImpl(namespace, managedObject, mib.getName(),
+                Generator generator = new GeneratorImpl(prefix, namespace, managedObject, mib.getName(),
                         metaFile,
-                        new File(src_out, "metric_mib_" + mib.getName() + "-gen-mib.go"),
+                        new File(src_out, "metric_mib_" +  ((null == prefix)?"":prefix) + mib.getName() + "-gen-mib.go"),
                         is_only_types);
                 generator.setManufacturer(manufacturer);
                 generateMib(mib, tables, generator);
@@ -202,11 +209,11 @@ public class Mib2Go {
             for (Mib mib1 : mibs) {
                 File  metaFile = null;
                 if (!not_registrer_metrics) {
-                    metaFile =new File(meta_out, "mib_" + mib1.getName() + "-gen.xml");
+                    metaFile =new File(meta_out, "mib_" + ((null == prefix)?"":prefix) + mib1.getName() + "-gen.xml");
                 }
-                Generator generator = new GeneratorImpl(namespace, managedObject, mib1.getName(),
+                Generator generator = new GeneratorImpl(prefix, namespace, managedObject, mib1.getName(),
                         metaFile,
-                        new File(src_out, "metric_mib_" + mib1.getName() + "-gen-mib.go"),
+                        new File(src_out, "metric_mib_" +  ((null == prefix)?"":prefix) +mib1.getName() + "-gen-mib.go"),
                         is_only_types);
                 generator.setManufacturer(manufacturer);
                 generateMib(mib1, tables, generator);

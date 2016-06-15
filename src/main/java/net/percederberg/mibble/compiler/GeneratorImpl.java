@@ -39,10 +39,12 @@ class GeneratorImpl implements Generator {
     Map<String, MibValueSymbol> groups = new HashMap<>();
     boolean is_only_types;
     private String manufacturer;
+    private String prefix;
 
-    public GeneratorImpl(String namespace, String managedObject, String module, File metaFile, File srcFile, boolean is_only_types) throws IOException, ParserConfigurationException, SAXException, XPathExpressionException {
+    public GeneratorImpl(String prefix, String namespace, String managedObject, String module, File metaFile, File srcFile, boolean is_only_types) throws IOException, ParserConfigurationException, SAXException, XPathExpressionException {
         this.managedObject = managedObject;
         this.module = module;
+        this.prefix = null == prefix?"":prefix;
         //this.metaWriter = meta;
         //this.srcWriter = src;
         this.is_only_types = is_only_types;
@@ -103,9 +105,9 @@ class GeneratorImpl implements Generator {
 
         MibValue arguments = ((SnmpObjectType) symbol.getType()).getAugments();
         if (null != arguments) {
-            metaWriter.append(String.format("  <metric name=\"%s\">\r\n", symbol.getParent().getName()));
+            metaWriter.append(String.format("  <metric name=\"%s\">\r\n", prefix + symbol.getParent().getName()));
         } else {
-            metaWriter.append(String.format("  <metric name=\"%s\" is_array=\"true\">\r\n", symbol.getParent().getName()));
+            metaWriter.append(String.format("  <metric name=\"%s\" is_array=\"true\">\r\n", prefix + symbol.getParent().getName()));
         }
         String classComment = ((SnmpType)symbol.getParent().getType()).getDescription();
         if(null != classComment && !classComment.trim().isEmpty()) {
@@ -152,7 +154,7 @@ class GeneratorImpl implements Generator {
             return;
         }
 
-        metaWriter.append(String.format("  <metric name=\"%s\">\r\n", symbol.getName()));
+        metaWriter.append(String.format("  <metric name=\"%s\">\r\n", prefix + symbol.getName()));
 //        String classComment = ((SnmpType)symbol.getType()).getDescription();
 //        if(null != classComment && !classComment.trim().isEmpty()) {
 //            metaWriter.append(String.format("    <description lang=\"zh-cn\">%s</description>\n", classComment));
@@ -228,7 +230,8 @@ class GeneratorImpl implements Generator {
     }
 
     public void GenerateGoTable(MibValueSymbol symbol, MibValueSymbol[] elementTypes) throws IOException {
-        String name = symbol.getParent().getName();
+        String name = prefix + symbol.getParent().getName();
+
         srcWriter.append(String.format("type %s struct {\r\n  metrics.SnmpBase\r\n}\r\n\n", name));
         srcWriter.append(String.format("func (self *%s) Call(params sampling.MContext) sampling.Result {\r\n", name));
 
@@ -485,6 +488,11 @@ class GeneratorImpl implements Generator {
     @Override
     public void GenerateGoArray(MibValueSymbol valueSymbol, MibValueSymbol[] children) throws IOException {
         if(!is_only_types) {
+            String name = prefix + valueSymbol.getParent().getName();
+            if(tables.containsKey(name)) {
+                return;
+            }
+
             GenerateMetaTable(valueSymbol, children);
             GenerateGoTable(valueSymbol, children);
         }
@@ -1030,7 +1038,7 @@ class GeneratorImpl implements Generator {
             }
         }
         if(!tables.isEmpty()) {
-            String moduleName = toGoName(module);
+            String moduleName = prefix +  toGoName(module);
 
             if(null != metaWriter) {
                 srcWriter.append("func init() {\r\n");
@@ -1075,8 +1083,9 @@ class GeneratorImpl implements Generator {
             return;
         }
 
-        srcWriter.append(String.format("type %s struct {\r\n  metrics.SnmpBase\r\n}\r\n\n", symbol.getName()));
-        srcWriter.append(String.format("func (self *%s) Call(params sampling.MContext) sampling.Result {\r\n", symbol.getName()));
+        String name = prefix + symbol.getName();
+        srcWriter.append(String.format("type %s struct {\r\n  metrics.SnmpBase\r\n}\r\n\n", name));
+        srcWriter.append(String.format("func (self *%s) Call(params sampling.MContext) sampling.Result {\r\n", name));
 
         srcWriter.append("  oids := []string{");
         for(MibValueSymbol el : children) {
@@ -1118,7 +1127,7 @@ class GeneratorImpl implements Generator {
         srcWriter.append("}\r\n\r\n");
         srcWriter.flush();
 
-        tables.put(symbol.getName(), new MetricSpec(symbol.getName(), symbol.getName(), false));
+        tables.put(name, new MetricSpec(name, name, false));
     }
 
 
