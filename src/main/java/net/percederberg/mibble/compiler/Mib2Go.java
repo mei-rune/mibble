@@ -55,6 +55,7 @@ public class Mib2Go {
         String namespace = null;
         String manufacturer = null;
         String prefix = null;
+        //String metric_prefix = null;
         boolean is_managedObject = false;
         boolean is_module = false;
         boolean is_dir = false;
@@ -66,6 +67,7 @@ public class Mib2Go {
         boolean is_manufacturer = false;
         boolean not_registrer_metrics = false;
         boolean is_prefix = false;
+        //boolean is_metric_prefix = false;
 
         if(null == args || 0 == args.length) {
             usage();
@@ -117,6 +119,11 @@ public class Mib2Go {
             } else if(is_prefix){
                 prefix = s;
                 is_prefix = false;
+//            } else if("-metric_prefix".equalsIgnoreCase(s)) {
+//                is_metric_prefix = true;
+//            } else if(is_metric_prefix){
+//                metric_prefix = s;
+//                is_metric_prefix = false;
             } else if("-ns".equalsIgnoreCase(s)) {
                 is_namespace = true;
             } else if(is_namespace){
@@ -188,15 +195,17 @@ public class Mib2Go {
         {
             Mib mib = loader.getMib(module);
             if (null != mib) {
+
+                String filename = getFileName(prefix, mib);
                 File  metaFile = null;
                 if (!not_registrer_metrics) {
-                    metaFile =new File(meta_out, "mib_" +  ((null == prefix)?"":prefix) + mib.getName() + "-gen.xml");
+                    metaFile =new File(meta_out, "mib_" +  filename + "-gen.xml");
                     // metaWriter = new OutputStreamWriter(new FileOutputStream(xmlFile), "UTF-8");
                 }
 
                 Generator generator = new GeneratorImpl(prefix, namespace, managedObject, mib.getName(),
                         metaFile,
-                        new File(src_out, "metric_mib_" +  ((null == prefix)?"":prefix) + mib.getName() + "-gen-mib.go"),
+                        new File(src_out, "metric_mib_" +  filename + "-gen-mib.go"),
                         is_only_types);
                 generator.setManufacturer(manufacturer);
                 generateMib(mib, tables, generator);
@@ -207,13 +216,15 @@ public class Mib2Go {
         mibs = loader.getMib(new File(module));
         if(null != mibs) {
             for (Mib mib1 : mibs) {
+                String filename = getFileName(prefix, mib1);
+
                 File  metaFile = null;
                 if (!not_registrer_metrics) {
-                    metaFile =new File(meta_out, "mib_" + ((null == prefix)?"":prefix) + mib1.getName() + "-gen.xml");
+                    metaFile =new File(meta_out, "mib_" + filename + "-gen.xml");
                 }
                 Generator generator = new GeneratorImpl(prefix, namespace, managedObject, mib1.getName(),
                         metaFile,
-                        new File(src_out, "metric_mib_" +  ((null == prefix)?"":prefix) +mib1.getName() + "-gen-mib.go"),
+                        new File(src_out, "metric_mib_" +  filename + "-gen-mib.go"),
                         is_only_types);
                 generator.setManufacturer(manufacturer);
                 generateMib(mib1, tables, generator);
@@ -231,6 +242,23 @@ public class Mib2Go {
         }
 
         System.out.println("‘"+module+"’ is not found.");
+    }
+
+    private static String getFileName(String prefix, Mib mib1) {
+        String filename = mib1.getName();
+        if(null != prefix) {
+            String prefix_name = prefix;
+            if(prefix_name.endsWith("-")) {
+                prefix_name = prefix_name.substring(0, prefix_name.length() -1);
+            }
+            if(prefix_name.endsWith("_")) {
+                prefix_name = prefix_name.substring(0, prefix_name.length() -1);
+            }
+            if(!filename.toLowerCase().startsWith(prefix_name)) {
+                filename = prefix + filename;
+            }
+        }
+        return filename;
     }
 
     private static void generateMib(Mib mib, ArrayList<String> tables, Generator generator) throws IOException {
@@ -333,14 +361,15 @@ public class Mib2Go {
                     if (2 <= ss.length) {
                         ext = ss[ss.length-1];
                     }
+
                     if(null == ext ||
                             ext.isEmpty()||
-                            "my".equals(ext)||
-                            "txt".equals(ext)||
-                            "mib".equals(ext)||
-                            "trp".equals(ext)||
-                            "smi".equals(ext)||
-                            "smi".equals(ext)) {
+                            "my".equalsIgnoreCase(ext)||
+                            "txt".equalsIgnoreCase(ext)||
+                            "mib".equalsIgnoreCase(ext)||
+                            "trp".equalsIgnoreCase(ext)||
+                            "smi".equalsIgnoreCase(ext)||
+                            "smi".equalsIgnoreCase(ext)) {
 
                         MibLoaderLog tmpLog = new MibLoaderLog();
                         loader.load(file, tmpLog);

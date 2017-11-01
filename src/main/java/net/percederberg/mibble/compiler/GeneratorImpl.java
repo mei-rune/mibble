@@ -40,11 +40,13 @@ class GeneratorImpl implements Generator {
     boolean is_only_types;
     private String manufacturer;
     private String prefix;
+   // private String metric_prefix;
 
     public GeneratorImpl(String prefix, String namespace, String managedObject, String module, File metaFile, File srcFile, boolean is_only_types) throws IOException, ParserConfigurationException, SAXException, XPathExpressionException {
         this.managedObject = managedObject;
         this.module = module;
         this.prefix = null == prefix?"":prefix;
+        //this.metric_prefix = null == metric_prefix?"": metric_prefix;
         //this.metaWriter = meta;
         //this.srcWriter = src;
         this.is_only_types = is_only_types;
@@ -113,7 +115,7 @@ class GeneratorImpl implements Generator {
         if(null != classComment && !classComment.trim().isEmpty()) {
             metaWriter.append(String.format("    <description lang=\"zh-cn\">%s</description>\r\n", escapeXml(classComment)));
         }
-        metaWriter.append(String.format("    <class name=\"%s\">\r\n", symbol.getParent().getName()));
+        metaWriter.append(String.format("    <class name=\"%s_class\">\r\n", prefix + symbol.getParent().getName()));
         metaWriter.append("      <property name=\"key\" type=\"string\">\r\n")
                 .append("        <label lang=\"zh-cn\">索引</label>\r\n")
                 .append("      </property>\r\n");
@@ -159,7 +161,7 @@ class GeneratorImpl implements Generator {
 //        if(null != classComment && !classComment.trim().isEmpty()) {
 //            metaWriter.append(String.format("    <description lang=\"zh-cn\">%s</description>\n", classComment));
 //        }
-        metaWriter.append(String.format("    <class name=\"%s\">\r\n", symbol.getName()));
+        metaWriter.append(String.format("    <class name=\"%s_class\">\r\n", prefix +symbol.getName()));
         generateChildrenMeta(children);
         metaWriter.append("    </class>\r\n");
         if(null != this.manufacturer && !this.manufacturer.trim().isEmpty()) {
