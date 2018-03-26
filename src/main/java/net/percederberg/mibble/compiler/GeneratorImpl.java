@@ -337,9 +337,19 @@ class GeneratorImpl implements Generator {
         ArrayList<MibValueSymbol> indexSymbols = new ArrayList<>();
         if (null != indexes && !indexes.isEmpty()) {
             for (SnmpIndex index : indexes) {
+                if(index == null) {
+                    continue;
+                }
+                if(index.getValue() == null) {
+                    continue;
+                }
+                if(!(index.getValue() instanceof ObjectIdentifierValue)) {
+                    continue;
+                }
+
                 indexSymbols.add(((ObjectIdentifierValue) index.getValue()).getSymbol());
             }
-            if (indexes.size() == 1) {
+            if (indexSymbols.size() == 1) {
                 MibValueSymbol idxSymbol = indexSymbols.get(0);
                 if( idxSymbol.getType() instanceof SnmpObjectType &&
                 ((SnmpObjectType) idxSymbol.getType()).getSyntax() instanceof StringType) {
