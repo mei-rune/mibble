@@ -796,7 +796,7 @@ class GeneratorImpl implements Generator {
                     return String.format("SnmpGetTestAndIncrWith(params, %s, %s, 0)", varName, oid);
                 }
                 if ("DateAndTime".equalsIgnoreCase(symbol.getName())) {
-                    return String.format("SnmpGetDateAndTimeWith(params, %s, %s, \"\")", varName, oid);
+                    return String.format("SnmpGetDateAndTimeWith(params, %s, %s, time.Time{})", varName, oid);
                 }
                 if ("MacAddress".equalsIgnoreCase(symbol.getName())) {
                     return String.format("SnmpGetMacAddressWith(params, %s, %s, \"\")", varName, oid);
