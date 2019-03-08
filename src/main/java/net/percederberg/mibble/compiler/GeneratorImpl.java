@@ -254,7 +254,7 @@ class GeneratorImpl implements Generator {
     private void generateReadByArguments(MibValueSymbol symbol, MibValueSymbol[] elementTypes, ObjectIdentifierValue args) throws IOException {
         srcWriter.append("  key := params.GetStringWithDefault(\"key\", \"\")\r\n")
                 .append("  if \"\" == key {\r\n")
-                .append("    return self.ReturnError(sampling.BadRequest(\"'key' is missing.\"))\r\n")
+                .append("    return self.ReturnError(params, sampling.BadRequest(\"'key' is missing.\"))\r\n")
                 .append("  }\r\n\r\n");
         generateReadByIdx(symbol, elementTypes, "key");
     }
@@ -271,7 +271,7 @@ class GeneratorImpl implements Generator {
         srcWriter.append("  }\r\n");
         srcWriter.append("  values, e := self.Get(params, oids)\r\n");
         srcWriter.append("  if nil != e {\r\n");
-        srcWriter.append("    return self.ReturnError(e)\r\n");
+        srcWriter.append("    return self.ReturnError(params, e)\r\n");
         srcWriter.append("  }\r\n");
 
 
@@ -1108,7 +1108,7 @@ class GeneratorImpl implements Generator {
         srcWriter.append("  }\r\n");
         srcWriter.append("  values, e := self.Get(params, oids)\r\n");
         srcWriter.append("  if nil != e {\r\n");
-        srcWriter.append("    return self.ReturnError(e)\r\n");
+        srcWriter.append("    return self.ReturnError(params, e)\r\n");
         srcWriter.append("  }\r\n");
 
         int i = 0;
