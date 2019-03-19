@@ -107,15 +107,15 @@ class GeneratorImpl implements Generator {
 
         MibValue arguments = ((SnmpObjectType) symbol.getType()).getAugments();
         if (null != arguments) {
-            metaWriter.append(String.format("  <metric name=\"%s\">\r\n", prefix + symbol.getParent().getName()));
+            metaWriter.append(String.format("  <metric name=\"%s\">\r\n", generateNameWithPrefix(symbol.getParent().getName())));
         } else {
-            metaWriter.append(String.format("  <metric name=\"%s\" is_array=\"true\">\r\n", prefix + symbol.getParent().getName()));
+            metaWriter.append(String.format("  <metric name=\"%s\" is_array=\"true\">\r\n", generateNameWithPrefix(symbol.getParent().getName())));
         }
         String classComment = ((SnmpType)symbol.getParent().getType()).getDescription();
         if(null != classComment && !classComment.trim().isEmpty()) {
             metaWriter.append(String.format("    <description lang=\"zh-cn\">%s</description>\r\n", escapeXml(classComment)));
         }
-        metaWriter.append(String.format("    <class name=\"%s_class\">\r\n", prefix + symbol.getParent().getName()));
+        metaWriter.append(String.format("    <class name=\"%s_class\">\r\n", generateNameWithPrefix(symbol.getParent().getName())));
         metaWriter.append("      <property name=\"key\" type=\"string\">\r\n")
                 .append("        <label lang=\"zh-cn\">索引</label>\r\n")
                 .append("      </property>\r\n");
@@ -156,12 +156,12 @@ class GeneratorImpl implements Generator {
             return;
         }
 
-        metaWriter.append(String.format("  <metric name=\"%s\">\r\n", prefix + symbol.getName()));
+        metaWriter.append(String.format("  <metric name=\"%s\">\r\n", generateNameWithPrefix(symbol.getName())));
 //        String classComment = ((SnmpType)symbol.getType()).getDescription();
 //        if(null != classComment && !classComment.trim().isEmpty()) {
 //            metaWriter.append(String.format("    <description lang=\"zh-cn\">%s</description>\n", classComment));
 //        }
-        metaWriter.append(String.format("    <class name=\"%s_class\">\r\n", prefix +symbol.getName()));
+        metaWriter.append(String.format("    <class name=\"%s_class\">\r\n", generateNameWithPrefix(symbol.getName())));
         generateChildrenMeta(children);
         metaWriter.append("    </class>\r\n");
         if(null != this.manufacturer && !this.manufacturer.trim().isEmpty()) {
@@ -232,7 +232,7 @@ class GeneratorImpl implements Generator {
     }
 
     public void GenerateGoTable(MibValueSymbol symbol, MibValueSymbol[] elementTypes) throws IOException {
-        String name = prefix + symbol.getParent().getName();
+        String name = generateNameWithPrefix(symbol.getParent().getName());
 
         srcWriter.append(String.format("type %s struct {\r\n  metrics.SnmpBase\r\n}\r\n\n", name));
         srcWriter.append(String.format("func (self *%s) Call(params sampling.MContext) sampling.Result {\r\n", name));
@@ -500,7 +500,7 @@ class GeneratorImpl implements Generator {
     @Override
     public void GenerateGoArray(MibValueSymbol valueSymbol, MibValueSymbol[] children) throws IOException {
         if(!is_only_types) {
-            String name = prefix + valueSymbol.getParent().getName();
+            String name = generateNameWithPrefix(valueSymbol.getParent().getName());
             if(tables.containsKey(name)) {
                 return;
             }
@@ -1050,7 +1050,7 @@ class GeneratorImpl implements Generator {
             }
         }
         if(!tables.isEmpty()) {
-            String moduleName = prefix +  toGoName(module);
+            String moduleName = generateNameWithPrefix(toGoName(module));
 
             if(null != metaWriter) {
                 srcWriter.append("func init() {\r\n");
@@ -1095,7 +1095,7 @@ class GeneratorImpl implements Generator {
             return;
         }
 
-        String name = prefix + symbol.getName();
+        String name = generateNameWithPrefix(symbol.getName());
         srcWriter.append(String.format("type %s struct {\r\n  metrics.SnmpBase\r\n}\r\n\n", name));
         srcWriter.append(String.format("func (self *%s) Call(params sampling.MContext) sampling.Result {\r\n", name));
 
@@ -1142,8 +1142,10 @@ class GeneratorImpl implements Generator {
         tables.put(name, new MetricSpec(name, name, false));
     }
 
-
-
+    private String generateNameWithPrefix(String symbol) {
+        return prefix +  symbol.substring(0, 1).toUpperCase() + symbol.substring(1) ;
+    }
+    
     private static MibValueSymbol[] toLeafOnly(MibValueSymbol[] children) {
         ArrayList<MibValueSymbol> results = new ArrayList<>();
         for(MibValueSymbol symbol : children) {
