@@ -972,7 +972,7 @@ class GeneratorImpl implements Generator {
                 }
                 if ("InetAddress".equalsIgnoreCase(symbol.getName())) {
                     if (null == prev_el) {
-                        return String.format("SnmpReadInetAddressFromOid(params, %s, %s, -1)", varName);
+                        return String.format("SnmpReadInetAddressFromOid(params, %s, -1)", varName);
                     } else {
                         return String.format("SnmpReadInetAddressFromOid(params, %s, %s)", varName, prev_el.getName());
                     }
@@ -1066,7 +1066,7 @@ class GeneratorImpl implements Generator {
                 } else {
                     srcWriter.append("nil,\r\n");
                 }
-                srcWriter.append("    func(rs *sampling.RouteSpec, params map[string]interface{}) (sampling.Method, error) {\r\n")
+                srcWriter.append("    func(rs *sampling.RouteSpec, params *sampling.InitContext) (sampling.Method, error) {\r\n")
                         .append("      drv := &").append(entry.getValue().implName).append("{}\r\n")
                         .append("      return drv, drv.Init(rs, params)\r\n")
                         .append("    })\r\n");
