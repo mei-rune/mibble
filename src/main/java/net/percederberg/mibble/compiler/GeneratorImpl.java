@@ -1060,8 +1060,8 @@ class GeneratorImpl implements Generator {
 
             for (Map.Entry<String, MetricSpec> entry : tables.entrySet()) {
                 srcWriter.append(" sampling.MustRegisterRouteSpec(nil, \"").append(entry.getKey()).append("_default\", \r\n&sampling.RouteSpec{Method: \"get\", \r\n"+
-                        "Name:  \"").append(this.managedObject).append("\",\r\n"+
-                        "Class: \"").append(entry.getValue().metric).append("\", \r\n");
+                        "Name:  \"").append(entry.getValue().metric).append("\",\r\n"+
+                        "Class: \"").append(this.managedObject).append("\", \r\n");
                 if(null != this.manufacturer && !this.manufacturer.trim().isEmpty()) {
                     srcWriter.append("Match: sampling.Match().Oid(\"").append(this.manufacturer).append("\").Build(),\r\n");
                 }

@@ -254,7 +254,7 @@ public class Mib2Go {
             if(prefix_name.endsWith("_")) {
                 prefix_name = prefix_name.substring(0, prefix_name.length() -1);
             }
-            if(!filename.toLowerCase().startsWith(prefix_name)) {
+            if(!filename.toLowerCase().startsWith(prefix_name.toLowerCase())) {
                 filename = prefix + filename;
             }
         }
