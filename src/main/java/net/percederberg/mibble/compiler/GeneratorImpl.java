@@ -58,7 +58,7 @@ class GeneratorImpl implements Generator {
                 "\t\"cn/com/hengwei/sampling\"\r\n" +
                 "\t. \"cn/com/hengwei/sampling/drivers/snmp2\"\r\n" +
                 "\t\"cn/com/hengwei/sampling/metrics\"\r\n" +
-                "\t\"errors\"\r\n" +
+                "\t\"github.com/runner-mei/errors\"\r\n" +
                 ")\r\n\r\n");
 
         if(null != metaFile) {
@@ -1059,17 +1059,16 @@ class GeneratorImpl implements Generator {
             }
 
             for (Map.Entry<String, MetricSpec> entry : tables.entrySet()) {
-                srcWriter.append(" sampling.RegisterRouteSpec(\"").append(entry.getKey()).append("_default\", \"get\", \"")
-                        .append(this.managedObject).append("\", \"").append(entry.getValue().metric).append("\", \"\", ");
+                srcWriter.append(" sampling.MustRegisterRouteSpec(nil, \"").append(entry.getKey()).append("_default\", \r\n&sampling.RouteSpec{Method: \"get\", \r\n"+
+                        "Name:  \"").append(this.managedObject).append("\",\r\n"+
+                        "Class: \"").append(entry.getValue().metric).append("\", \r\n");
                 if(null != this.manufacturer && !this.manufacturer.trim().isEmpty()) {
-                    srcWriter.append("sampling.Match().Oid(\"").append(this.manufacturer).append("\").Build(),\r\n");
-                } else {
-                    srcWriter.append("nil,\r\n");
+                    srcWriter.append("Match: sampling.Match().Oid(\"").append(this.manufacturer).append("\").Build(),\r\n");
                 }
-                srcWriter.append("    func(rs *sampling.RouteSpec, params *sampling.InitContext) (sampling.Method, error) {\r\n")
+                srcWriter.append("    Init: func(rs *sampling.RouteSpec, params *sampling.InitContext) (sampling.Method, error) {\r\n")
                         .append("      drv := &").append(entry.getValue().implName).append("{}\r\n")
                         .append("      return drv, drv.Init(rs, params)\r\n")
-                        .append("    })\r\n");
+                        .append("    }})\r\n");
             }
             srcWriter.append("}\r\n\r\n");
 
